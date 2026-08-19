@@ -1,5 +1,7 @@
 import java.util.Scanner;
+
 public class Atlas {
+
     /**
      * Prints a message inside a speech bubble.
      * The bubble width adapts to the message length.
@@ -10,6 +12,7 @@ public class Atlas {
         System.out.println("│ " + message + " │");
         System.out.println("╰" + border + "╯");
     }
+
     public static void main(String[] args) {
         String banner = "     _  _____ _        _    ____\n"
                 + "    / \\|_   _| |      / \\  / ___|\n"
@@ -19,11 +22,13 @@ public class Atlas {
         System.out.println(banner);
         speak("Hello! I'm Atlas, your personal assistant.");
         speak("What can I do for you?");
-        String[] tasks = new String[100];
-        boolean[] done = new boolean[100];
+
+        Task[] tasks = new Task[100];
         int taskCount = 0;
+
         Scanner in = new Scanner(System.in);
         String line = in.nextLine();
+
         while (!line.equals("bye")) {
             if (line.equals("list")) {
                 if (taskCount == 0) {
@@ -31,28 +36,28 @@ public class Atlas {
                 } else {
                     speak("Here are the tasks in your list:");
                     for (int i = 0; i < taskCount; i++) {
-                        System.out.println((i + 1) + ".[" + (done[i] ? "X" : " ") + "] " + tasks[i]);
+                        System.out.println((i + 1) + ".[" + tasks[i].getStatusIcon() + "] " + tasks[i].description);
                     }
                 }
             } else if (line.startsWith("mark ")) {
                 int index = Integer.parseInt(line.substring(5)) - 1;
-                done[index] = true;
+                tasks[index].markAsDone();
                 speak("Nice! I've marked this task as done:");
-                speak("  [" + (done[index] ? "X" : " ") + "] " + tasks[index]);
+                speak("  [" + tasks[index].getStatusIcon() + "] " + tasks[index].description);
             } else if (line.startsWith("unmark ")) {
                 int index = Integer.parseInt(line.substring(7)) - 1;
-                done[index] = false;
-                speak("Okay, I've marked this task as not done yet:");
-                speak("  [" + (done[index] ? "X" : " ") + "] " + tasks[index]);
+                tasks[index].markAsNotDone();
+                speak("OK, I've marked this task as not done yet:");
+                speak("  [" + tasks[index].getStatusIcon() + "] " + tasks[index].description);
             } else {
-                tasks[taskCount] = line;
-                done[taskCount] = false;
+                tasks[taskCount] = new Task(line);
                 taskCount++;
                 speak("Got it. I've added: " + line);
                 speak("You now have " + taskCount + " task" + (taskCount == 1 ? "" : "s") + ".");
             }
             line = in.nextLine();
         }
+
         speak("Goodbye. Atlas signing off. See you soon!");
     }
 }
