@@ -19,19 +19,19 @@ public class Atlas {
      */
     static Task parseTask(String line) {
         if (line.startsWith("todo ")) {
-            return new Task("T", line.substring(5));
+            return new Todo(line.substring(5));
         }
         if (line.startsWith("deadline ")) {
             int byPos = line.indexOf(" /by ");
-            return new Task("D", line.substring(9, byPos), line.substring(byPos + 5));
+            return new Deadline(line.substring(9, byPos), line.substring(byPos + 5));
         }
         if (line.startsWith("event ")) {
             int fromPos = line.indexOf(" /from ");
             int toPos = line.indexOf(" /to ", fromPos);
-            return new Task("E", line.substring(6, fromPos),
+            return new Event(line.substring(6, fromPos),
                     line.substring(fromPos + 7, toPos), line.substring(toPos + 5));
         }
-        return new Task("T", line);
+        return new Todo(line);
     }
 
     public static void main(String[] args) {
