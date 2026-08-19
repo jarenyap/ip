@@ -23,11 +23,28 @@ public class Atlas {
         speak("Hello! I'm Atlas, your personal assistant.");
         speak("What can I do for you?");
 
+        String[] tasks = new String[100];
+        int taskCount = 0;
+
         Scanner in = new Scanner(System.in);
         String line = in.nextLine();
 
         while (!line.equals("bye")) {
-            speak(line);
+            if (line.equals("list")) {
+                if (taskCount == 0) {
+                    speak("Your list is empty.");
+                } else {
+                    speak("Here are the tasks in your list.");
+                    for (int i = 0; i < taskCount; i++) {
+                        System.out.println((i + 1) + ". " + tasks[i]);
+                    }
+                }
+            } else {
+                tasks[taskCount] = line;
+                taskCount++;
+                speak("Got it. I've added: " + line);
+                speak("You now have " + taskCount + " task" + (taskCount == 1 ? "" : "s") + ".");
+            }
             line = in.nextLine();
         }
 
