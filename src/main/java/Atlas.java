@@ -18,7 +18,7 @@ public class Atlas {
      * Returns the 1-based task number, or -1 if it is not a number.
      */
     static int parseIndex(String line, String command) {
-        String rest = line.substring(command.length() + 1);
+        String rest = line.substring(command.length() + 1).trim();
         try {
             return Integer.parseInt(rest);
         } catch (NumberFormatException e) {
@@ -45,9 +45,9 @@ public class Atlas {
                 speak("The Fates weave on schedule. Use: deadline <desc> /by <when>");
                 return null;
             }
-            String desc = line.substring(9, byPos);
+            String desc = byPos <= 9 ? "" : line.substring(9, byPos);
             if (desc.isEmpty()) {
-                speak("The description of a deadline cannot be empty.");
+                speak("Name your labour, mortal: deadline <desc> /by <when>");
                 return null;
             }
             return new Deadline(desc, line.substring(byPos + 5));
@@ -63,9 +63,9 @@ public class Atlas {
                 speak("Icarus never planned a landing either. Use: event <desc> /from <start> /to <end>");
                 return null;
             }
-            String desc = line.substring(6, fromPos);
+            String desc = fromPos <= 6 ? "" : line.substring(6, fromPos);
             if (desc.isEmpty()) {
-                speak("The description of an event cannot be empty.");
+                speak("Name your labour, mortal: event <desc> /from <start> /to <end>");
                 return null;
             }
             return new Event(desc, line.substring(fromPos + 7, toPos), line.substring(toPos + 5));
@@ -117,8 +117,10 @@ public class Atlas {
                     speak("OK, I've marked this task as not done yet:");
                     speak("  " + tasks[index - 1]);
                 }
-            } else if (line.equals("mark") || line.equals("unmark")) {
+            } else if (line.equals("mark")) {
                 speak("Which labour is complete? Use: mark <number>");
+            } else if (line.equals("unmark")) {
+                speak("Which labour is not complete? Use: unmark <number>");
             } else if (line.equals("todo") || line.startsWith("todo ")
                     || line.equals("deadline") || line.startsWith("deadline ")
                     || line.equals("event") || line.startsWith("event ")) {
