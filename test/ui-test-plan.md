@@ -6,28 +6,32 @@ Each case has two files under `test/cases/`:
 
 - `<name>.in` — commands fed to Atlas (must end with `bye`)
 - `<name>.expected` — lines that must appear in the output (substring match,
-  mirroring the course grading scripts; tolerant of bubble formatting)
+  mirroring the course grading scripts; tolerant of bubble formatting).
+  Indexed list lines (e.g. `1.[T][ ] task`) only occur in `list` output, so
+  they prove stored state rather than acknowledgement text.
 
 ## Cases
 
 | Case | Aim | Inputs | Expected |
 |---|---|---|---|
-| `spec-scenario` | Full week-2 flow: add all 3 task types, list, mark, exit | `todo borrow book`, `deadline return book /by Sunday`, `event project meeting /from Mon 2pm /to 4pm`, `deadline do homework /by no idea :-p`, `list`, `mark 1`, `list`, `bye` | All 3 types render with correct markers; list numbered with `[X]` after mark; goodbye on `bye` |
+| `spec-scenario` | Full week-2 flow: add all 3 task types, list, mark, exit | `todo borrow book`, `deadline return book /by Sunday`, `event project meeting /from Mon 2pm /to 4pm`, `deadline do homework /by no idea :-p`, `list`, `mark 1`, `list`, `bye` | Indexed list snapshots before and after mark; goodbye on `bye` |
 | `empty-list` | `list` with no tasks | `list`, `bye` | `Your list is empty.` |
-| `mark-unmark-all-types` | mark/unmark works on every task type | `todo a`, `deadline b /by Mon`, `event c /from 1pm /to 2pm`, `mark 2`, `mark 3`, `list`, `unmark 1`, `list`, `bye` | `[D][X]` and `[E][X]` after mark; `[T][ ]` restored after unmark |
-| `special-chars` | punctuation and multi-word fields parse | `deadline fix bug /by EOD :-)`, `event team dinner /from 7pm at marina /to 9pm at home`, `list`, `bye` | `(by: EOD :-))`, `(from: 7pm at marina to: 9pm at home)` |
-| `unknown-command` | bare text is rejected, not silently added | `plain task`, `bye` | `The Oracle is silent` |
+| `mark-unmark-all-types` | mark AND unmark on every task type | `todo a`, `deadline b /by Mon`, `event c /from 1pm /to 2pm`, `mark 1`, `mark 2`, `mark 3`, `list`, `unmark 1`, `unmark 2`, `unmark 3`, `list`, `bye` | All three `[X]` after mark; all three `[ ]` restored after unmark |
+| `special-chars` | punctuation and multi-word fields parse | `deadline fix bug /by EOD :-)`, `event team dinner /from 7pm at marina /to 9pm at home`, `list`, `bye` | Indexed list lines with `(by: EOD :-))` and `(from: 7pm at marina to: 9pm at home)` |
+| `unknown-command` | bare text is rejected, not silently added | `plain task`, `bye` | Full Oracle message with command list |
 | `uppercase-bye` | only exact `bye` exits | `BYE`, `list`, `bye` | `BYE` rejected as unknown; session continues |
 | `empty-todo` | empty todo description rejected | `todo`, `todo `, `bye` | `Name your labour, mortal: todo <desc>` |
-| `missing-by` | deadline without ` /by ` rejected | `deadline do work`, `deadline`, `bye` | `The Fates weave on schedule` |
-| `missing-from` | event without ` /from ` rejected | `event party /to 10pm`, `event`, `bye` | `Even Icarus launched` |
-| `missing-to` | event without ` /to ` rejected | `event party /from 8pm`, `bye` | `Icarus never planned a landing` |
-| `bad-mark` | mark/unmark with non-number, zero, out-of-range, or no index | `mark abc`, `mark 0`, `mark 99`, `mark`, `unmark`, `unmark 99`, `bye` | `No such task in the pantheon. Use: mark <number>` (x3), `Which labour is complete? Use: mark <number>`, `Which labour is not complete? Use: unmark <number>`, `No such task in the pantheon. Use: unmark <number>` |
-| `empty-desc` | task command with marker but no description | `deadline /by Mon`, `event /from 2pm /to 3pm`, `todo`, `bye` | `Name your labour, mortal` |
+| `missing-by` | deadline without ` /by ` rejected | `deadline do work`, `deadline`, `bye` | Full Fates message with syntax hint |
+| `missing-from` | event without ` /from ` rejected | `event party /to 10pm`, `event`, `bye` | Full Icarus-from message with syntax hint |
+| `missing-to` | event without ` /to ` rejected | `event party /from 8pm`, `bye` | Full Icarus-to message with syntax hint |
+| `bad-mark` | mark/unmark with non-number, zero, out-of-range, or no index | `mark abc`, `mark 0`, `mark 99`, `mark`, `unmark`, `unmark 99`, `bye` | Full pantheon messages for both commands; bare-command prompts |
+| `empty-desc` | task command with marker but no description | `deadline /by Mon`, `event /from 2pm /to 3pm`, `todo`, `bye` | All three full `Name your labour` messages |
+| `empty-values` | whitespace-only descriptions and empty date fields rejected | `todo  `, `deadline task /by `, `event party /from  /to end`, `event party /from start /to `, `list`, `bye` | All four full error messages; list still empty |
 | `delete-case` | delete removes the task and renumbers | `todo a`, `deadline b /by Mon`, `event c /from 1pm /to 2pm`, `delete 2`, `list`, `delete 1`, `list`, `bye` | Removed task shown `[D][ ] b (by: Mon)`; count drops; list renumbers without gaps |
-| `delete-bad` | delete with non-number, zero, out-of-range, or no index | `delete abc`, `delete 0`, `delete 99`, `delete`, `bye` | `No such task in the pantheon. Use: delete <number>`, `Which labour shall I release? Use: delete <number>` |
+| `delete-bad` | delete with non-number, zero, out-of-range, or no index | `delete abc`, `delete 0`, `delete 99`, `delete`, `bye` | Full pantheon message; bare-command prompt |
 | `delete-only` | deleting the last task empties the list cleanly | `todo only`, `delete 1`, `list`, `bye` | Removed shown; `Now you have 0 tasks in the list.`; `Your list is empty.` |
-| `large-list` | dynamic sizing: more than 100 tasks accepted | 101 `todo task N` commands, `bye` | `Now you have 101 tasks in the list.` |
+| `state-recovery` | errors leave the list untouched; mark/delete after errors work | `todo keep`, `deadline due /by Fri`, `event meet /from 10am /to 11am`, `deadline broken`, `mark 99`, `delete 99`, `list`, `mark 2`, `delete 1`, `list`, `unmark 1`, `list`, `bye` | Errors do not add tasks; indexed snapshots prove keep removed, due stays marked through the delete, then unmarks |
+| `large-list` | dynamic sizing and storage correctness beyond 100 tasks | 101 `todo task N` commands, `list`, `mark 101`, `delete 1`, `list`, `bye` | Indexed lines for tasks 1/100/101; 101st markable; after delete: renumbered, 101st still marked, count 100 |
 
 ## Maintenance rule
 

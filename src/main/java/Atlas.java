@@ -34,7 +34,7 @@ public class Atlas {
     static Task parseTask(String line) throws AtlasException {
         if (line.equals("todo") || line.startsWith("todo ")) {
             String desc = line.equals("todo") ? "" : line.substring(5);
-            if (desc.isEmpty()) {
+            if (desc.trim().isEmpty()) {
                 throw new AtlasException("Name your labour, mortal: todo <desc>");
             }
             return new Todo(desc);
@@ -45,10 +45,14 @@ public class Atlas {
                 throw new AtlasException("The Fates weave on schedule. Use: deadline <desc> /by <when>");
             }
             String desc = byPos <= 9 ? "" : line.substring(9, byPos);
-            if (desc.isEmpty()) {
+            if (desc.trim().isEmpty()) {
                 throw new AtlasException("Name your labour, mortal: deadline <desc> /by <when>");
             }
-            return new Deadline(desc, line.substring(byPos + 5));
+            String by = line.substring(byPos + 5);
+            if (by.trim().isEmpty()) {
+                throw new AtlasException("The Fates weave on schedule. Use: deadline <desc> /by <when>");
+            }
+            return new Deadline(desc, by);
         }
         if (line.equals("event") || line.startsWith("event ")) {
             int fromPos = line.indexOf(" /from ");
@@ -60,10 +64,18 @@ public class Atlas {
                 throw new AtlasException("Icarus never planned a landing either. Use: event <desc> /from <start> /to <end>");
             }
             String desc = fromPos <= 6 ? "" : line.substring(6, fromPos);
-            if (desc.isEmpty()) {
+            if (desc.trim().isEmpty()) {
                 throw new AtlasException("Name your labour, mortal: event <desc> /from <start> /to <end>");
             }
-            return new Event(desc, line.substring(fromPos + 7, toPos), line.substring(toPos + 5));
+            String from = line.substring(fromPos + 7, toPos);
+            if (from.trim().isEmpty()) {
+                throw new AtlasException("Even Icarus launched from somewhere. Use: event <desc> /from <start> /to <end>");
+            }
+            String to = line.substring(toPos + 5);
+            if (to.trim().isEmpty()) {
+                throw new AtlasException("Icarus never planned a landing either. Use: event <desc> /from <start> /to <end>");
+            }
+            return new Event(desc, from, to);
         }
         return null;
     }

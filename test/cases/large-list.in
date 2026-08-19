@@ -99,4 +99,8 @@ todo task 98
 todo task 99
 todo task 100
 todo task 101
+list
+mark 101
+delete 1
+list
 bye

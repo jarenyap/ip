@@ -22,7 +22,16 @@ for input in test/cases/*.in; do
     name=$(basename "$input" .in)
     expected_file="test/cases/$name.expected"
     output=$(java -cp "$BIN" Atlas < "$input" 2>&1)
-    ok=1
+    status=$?
+    if [ $status -ne 0 ]; then
+        echo "[FAIL] $name: program exited with code $status"
+        echo "----- console input -----"
+        cat "$input"
+        echo "----- actual output -----"
+        echo "$output"
+        echo "********** TEST SESSION TERMINATED **********"
+        exit 1
+    fi
     while IFS= read -r expected; do
         [ -z "$expected" ] && continue
         if ! grep -qF -- "$expected" <<<"$output"; then
