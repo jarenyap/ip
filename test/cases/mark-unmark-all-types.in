@@ -1,0 +1,9 @@
+todo a
+deadline b /by Mon
+event c /from 1pm /to 2pm
+mark 2
+mark 3
+list
+unmark 1
+list
+bye
