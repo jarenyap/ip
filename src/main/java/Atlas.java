@@ -114,6 +114,22 @@ public class Atlas {
                     throw new AtlasException("Which labour is complete? Use: mark <number>");
                 } else if (line.equals("unmark")) {
                     throw new AtlasException("Which labour is not complete? Use: unmark <number>");
+                } else if (line.startsWith("delete ")) {
+                    int index = parseIndex(line, "delete");
+                    if (index < 1 || index > taskCount) {
+                        throw new AtlasException("No such task in the pantheon. Use: delete <number>");
+                    }
+                    Task removed = tasks[index - 1];
+                    for (int i = index - 1; i < taskCount - 1; i++) {
+                        tasks[i] = tasks[i + 1];
+                    }
+                    tasks[taskCount - 1] = null;
+                    taskCount--;
+                    speak("Got it. I've removed this task:");
+                    speak("  " + removed);
+                    speak("Now you have " + taskCount + " task" + (taskCount == 1 ? "" : "s") + " in the list.");
+                } else if (line.equals("delete")) {
+                    throw new AtlasException("Which labour shall I release? Use: delete <number>");
                 } else if (line.equals("todo") || line.startsWith("todo ")
                         || line.equals("deadline") || line.startsWith("deadline ")
                         || line.equals("event") || line.startsWith("event ")) {
@@ -127,7 +143,7 @@ public class Atlas {
                     speak("  " + t);
                     speak("Now you have " + taskCount + " task" + (taskCount == 1 ? "" : "s") + " in the list.");
                 } else {
-                    throw new AtlasException("The Oracle is silent on that word. Try: todo, deadline, event, list, mark, unmark, bye.");
+                    throw new AtlasException("The Oracle is silent on that word. Try: todo, deadline, event, list, mark, unmark, delete, bye.");
                 }
             } catch (AtlasException e) {
                 speak(e.getMessage());
