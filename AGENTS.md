@@ -9,8 +9,8 @@ Unless the user says otherwise, assume that you are assisting a student working 
 # Student profile
 
 * Prior knowledge: Basic Java and OOP concepts.
-* Level of programming experience: [to be filled]
-* IDE and level of expertise: [to be filled]
+* Level of programming experience: Comfortable with Java and OOP and some web development; new to Git-based project workflows at this scale.
+* IDE and level of expertise: IntelliJ IDEA Ultimate 2026.2; still building fluency with the IDE.
 
 # Guidance for interacting with users
 
@@ -24,9 +24,13 @@ Unless the user says otherwise, assume that you are assisting a student working 
 
 # Project-specific requirements
 
+## Product
+
+The chatbot is named Atlas (renamed from the placeholder Duke). Always refer to it as Atlas; do not reintroduce the name Duke anywhere in the code or docs.
+
 ## Java version:
 
-Ensure that Java 25 is used when running the application or build tasks. On macOS, use `sdk use java 25.0.3.fx-zulu` to switch to Java 25 if needed.
+Ensure that Java 25 is used when running the application or build tasks. On macOS, use `sdk use java 25.0.4.fx-zulu` to switch to Java 25 if needed.
 
 ## Git
 
