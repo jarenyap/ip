@@ -22,12 +22,12 @@ Each case has two files under `test/cases/`:
 | `missing-by` | deadline without ` /by ` rejected | `deadline do work`, `deadline`, `bye` | `The Fates weave on schedule` |
 | `missing-from` | event without ` /from ` rejected | `event party /to 10pm`, `event`, `bye` | `Even Icarus launched` |
 | `missing-to` | event without ` /to ` rejected | `event party /from 8pm`, `bye` | `Icarus never planned a landing` |
-| `bad-mark` | mark with non-number, zero, out-of-range, or no index | `mark abc`, `mark 0`, `mark 99`, `mark`, `unmark`, `bye` | `No such task in the pantheon. Use: mark <number>` (x3), `Which labour is complete? Use: mark <number>`, `Which labour is not complete? Use: unmark <number>` |
+| `bad-mark` | mark/unmark with non-number, zero, out-of-range, or no index | `mark abc`, `mark 0`, `mark 99`, `mark`, `unmark`, `unmark 99`, `bye` | `No such task in the pantheon. Use: mark <number>` (x3), `Which labour is complete? Use: mark <number>`, `Which labour is not complete? Use: unmark <number>`, `No such task in the pantheon. Use: unmark <number>` |
 | `empty-desc` | task command with marker but no description | `deadline /by Mon`, `event /from 2pm /to 3pm`, `todo`, `bye` | `Name your labour, mortal` |
 | `delete-case` | delete removes the task and renumbers | `todo a`, `deadline b /by Mon`, `event c /from 1pm /to 2pm`, `delete 2`, `list`, `delete 1`, `list`, `bye` | Removed task shown `[D][ ] b (by: Mon)`; count drops; list renumbers without gaps |
 | `delete-bad` | delete with non-number, zero, out-of-range, or no index | `delete abc`, `delete 0`, `delete 99`, `delete`, `bye` | `No such task in the pantheon. Use: delete <number>`, `Which labour shall I release? Use: delete <number>` |
 | `delete-only` | deleting the last task empties the list cleanly | `todo only`, `delete 1`, `list`, `bye` | Removed shown; `Now you have 0 tasks in the list.`; `Your list is empty.` |
-| `full-list` | 101st task rejected | 101 `todo task N` commands, `bye` | `Even my shoulders have a limit.` |
+| `large-list` | dynamic sizing: more than 100 tasks accepted | 101 `todo task N` commands, `bye` | `Now you have 101 tasks in the list.` |
 
 ## Maintenance rule
 

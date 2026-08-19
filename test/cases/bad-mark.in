@@ -3,4 +3,5 @@ mark 0
 mark 99
 mark
 unmark
+unmark 99
 bye

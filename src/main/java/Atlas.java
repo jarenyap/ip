@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 import java.util.Scanner;
 
 public class Atlas {
@@ -14,7 +15,7 @@ public class Atlas {
     }
 
     /**
-     * Parses the number after a mark/unmark command.
+     * Parses the number after a mark/unmark/delete command.
      * Returns the 1-based task number, or -1 if it is not a number.
      */
     static int parseIndex(String line, String command) {
@@ -77,8 +78,7 @@ public class Atlas {
         speak("Hello! I'm Atlas, your personal assistant.");
         speak("What can I do for you?");
 
-        Task[] tasks = new Task[100];
-        int taskCount = 0;
+        ArrayList<Task> tasks = new ArrayList<>();
 
         Scanner in = new Scanner(System.in);
         String line = in.nextLine();
@@ -86,62 +86,53 @@ public class Atlas {
         while (!line.equals("bye")) {
             try {
                 if (line.equals("list")) {
-                    if (taskCount == 0) {
+                    if (tasks.isEmpty()) {
                         speak("Your list is empty.");
                     } else {
                         speak("Here are the tasks in your list:");
-                        for (int i = 0; i < taskCount; i++) {
-                            System.out.println((i + 1) + "." + tasks[i]);
+                        for (int i = 0; i < tasks.size(); i++) {
+                            System.out.println((i + 1) + "." + tasks.get(i));
                         }
                     }
                 } else if (line.startsWith("mark ")) {
                     int index = parseIndex(line, "mark");
-                    if (index < 1 || index > taskCount) {
+                    if (index < 1 || index > tasks.size()) {
                         throw new AtlasException("No such task in the pantheon. Use: mark <number>");
                     }
-                    tasks[index - 1].markAsDone();
+                    tasks.get(index - 1).markAsDone();
                     speak("Nice! I've marked this task as done:");
-                    speak("  " + tasks[index - 1]);
+                    speak("  " + tasks.get(index - 1));
                 } else if (line.startsWith("unmark ")) {
                     int index = parseIndex(line, "unmark");
-                    if (index < 1 || index > taskCount) {
+                    if (index < 1 || index > tasks.size()) {
                         throw new AtlasException("No such task in the pantheon. Use: unmark <number>");
                     }
-                    tasks[index - 1].markAsNotDone();
+                    tasks.get(index - 1).markAsNotDone();
                     speak("OK, I've marked this task as not done yet:");
-                    speak("  " + tasks[index - 1]);
+                    speak("  " + tasks.get(index - 1));
                 } else if (line.equals("mark")) {
                     throw new AtlasException("Which labour is complete? Use: mark <number>");
                 } else if (line.equals("unmark")) {
                     throw new AtlasException("Which labour is not complete? Use: unmark <number>");
                 } else if (line.startsWith("delete ")) {
                     int index = parseIndex(line, "delete");
-                    if (index < 1 || index > taskCount) {
+                    if (index < 1 || index > tasks.size()) {
                         throw new AtlasException("No such task in the pantheon. Use: delete <number>");
                     }
-                    Task removed = tasks[index - 1];
-                    for (int i = index - 1; i < taskCount - 1; i++) {
-                        tasks[i] = tasks[i + 1];
-                    }
-                    tasks[taskCount - 1] = null;
-                    taskCount--;
+                    Task removed = tasks.remove(index - 1);
                     speak("Got it. I've removed this task:");
                     speak("  " + removed);
-                    speak("Now you have " + taskCount + " task" + (taskCount == 1 ? "" : "s") + " in the list.");
+                    speak("Now you have " + tasks.size() + " task" + (tasks.size() == 1 ? "" : "s") + " in the list.");
                 } else if (line.equals("delete")) {
                     throw new AtlasException("Which labour shall I release? Use: delete <number>");
                 } else if (line.equals("todo") || line.startsWith("todo ")
                         || line.equals("deadline") || line.startsWith("deadline ")
                         || line.equals("event") || line.startsWith("event ")) {
                     Task t = parseTask(line);
-                    if (taskCount == 100) {
-                        throw new AtlasException("Even my shoulders have a limit. Finish or delete a task first.");
-                    }
-                    tasks[taskCount] = t;
-                    taskCount++;
+                    tasks.add(t);
                     speak("Got it. I've added this task:");
                     speak("  " + t);
-                    speak("Now you have " + taskCount + " task" + (taskCount == 1 ? "" : "s") + " in the list.");
+                    speak("Now you have " + tasks.size() + " task" + (tasks.size() == 1 ? "" : "s") + " in the list.");
                 } else {
                     throw new AtlasException("The Oracle is silent on that word. Try: todo, deadline, event, list, mark, unmark, delete, bye.");
                 }
