@@ -14,24 +14,63 @@ public class Atlas {
     }
 
     /**
+     * Parses the number after a mark/unmark command.
+     * Returns the 1-based task number, or -1 if it is not a number.
+     */
+    static int parseIndex(String line, String command) {
+        String rest = line.substring(command.length() + 1);
+        try {
+            return Integer.parseInt(rest);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    /**
      * Parses a todo/deadline/event command line into a Task.
-     * Lines without a command prefix are treated as plain todos.
+     * Returns null (after explaining the problem) if the input is malformed.
      */
     static Task parseTask(String line) {
-        if (line.startsWith("todo ")) {
-            return new Todo(line.substring(5));
+        if (line.equals("todo") || line.startsWith("todo ")) {
+            String desc = line.equals("todo") ? "" : line.substring(5);
+            if (desc.isEmpty()) {
+                speak("Name your labour, mortal: todo <desc>");
+                return null;
+            }
+            return new Todo(desc);
         }
-        if (line.startsWith("deadline ")) {
+        if (line.equals("deadline") || line.startsWith("deadline ")) {
             int byPos = line.indexOf(" /by ");
-            return new Deadline(line.substring(9, byPos), line.substring(byPos + 5));
+            if (byPos == -1) {
+                speak("The Fates weave on schedule. Use: deadline <desc> /by <when>");
+                return null;
+            }
+            String desc = line.substring(9, byPos);
+            if (desc.isEmpty()) {
+                speak("The description of a deadline cannot be empty.");
+                return null;
+            }
+            return new Deadline(desc, line.substring(byPos + 5));
         }
-        if (line.startsWith("event ")) {
+        if (line.equals("event") || line.startsWith("event ")) {
             int fromPos = line.indexOf(" /from ");
+            if (fromPos == -1) {
+                speak("Even Icarus launched from somewhere. Use: event <desc> /from <start> /to <end>");
+                return null;
+            }
             int toPos = line.indexOf(" /to ", fromPos);
-            return new Event(line.substring(6, fromPos),
-                    line.substring(fromPos + 7, toPos), line.substring(toPos + 5));
+            if (toPos == -1) {
+                speak("Icarus never planned a landing either. Use: event <desc> /from <start> /to <end>");
+                return null;
+            }
+            String desc = line.substring(6, fromPos);
+            if (desc.isEmpty()) {
+                speak("The description of an event cannot be empty.");
+                return null;
+            }
+            return new Event(desc, line.substring(fromPos + 7, toPos), line.substring(toPos + 5));
         }
-        return new Todo(line);
+        return null;
     }
 
     public static void main(String[] args) {
@@ -61,22 +100,42 @@ public class Atlas {
                     }
                 }
             } else if (line.startsWith("mark ")) {
-                int index = Integer.parseInt(line.substring(5)) - 1;
-                tasks[index].markAsDone();
-                speak("Nice! I've marked this task as done:");
-                speak("  " + tasks[index]);
+                int index = parseIndex(line, "mark");
+                if (index < 1 || index > taskCount) {
+                    speak("No such task in the pantheon. Use: mark <number>");
+                } else {
+                    tasks[index - 1].markAsDone();
+                    speak("Nice! I've marked this task as done:");
+                    speak("  " + tasks[index - 1]);
+                }
             } else if (line.startsWith("unmark ")) {
-                int index = Integer.parseInt(line.substring(7)) - 1;
-                tasks[index].markAsNotDone();
-                speak("OK, I've marked this task as not done yet:");
-                speak("  " + tasks[index]);
-            } else {
+                int index = parseIndex(line, "unmark");
+                if (index < 1 || index > taskCount) {
+                    speak("No such task in the pantheon. Use: unmark <number>");
+                } else {
+                    tasks[index - 1].markAsNotDone();
+                    speak("OK, I've marked this task as not done yet:");
+                    speak("  " + tasks[index - 1]);
+                }
+            } else if (line.equals("mark") || line.equals("unmark")) {
+                speak("Which labour is complete? Use: mark <number>");
+            } else if (line.equals("todo") || line.startsWith("todo ")
+                    || line.equals("deadline") || line.startsWith("deadline ")
+                    || line.equals("event") || line.startsWith("event ")) {
                 Task t = parseTask(line);
-                tasks[taskCount] = t;
-                taskCount++;
-                speak("Got it. I've added this task:");
-                speak("  " + t);
-                speak("Now you have " + taskCount + " task" + (taskCount == 1 ? "" : "s") + " in the list.");
+                if (t != null) {
+                    if (taskCount == 100) {
+                        speak("Even my shoulders have a limit. Finish or delete a task first.");
+                    } else {
+                        tasks[taskCount] = t;
+                        taskCount++;
+                        speak("Got it. I've added this task:");
+                        speak("  " + t);
+                        speak("Now you have " + taskCount + " task" + (taskCount == 1 ? "" : "s") + " in the list.");
+                    }
+                }
+            } else {
+                speak("The Oracle is silent on that word. Try: todo, deadline, event, list, mark, unmark, bye.");
             }
             line = in.nextLine();
         }
