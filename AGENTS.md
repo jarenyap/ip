@@ -26,7 +26,7 @@ Unless the user says otherwise, assume that you are assisting a student working 
 
 ## Product
 
-The chatbot is named Atlas (renamed from the placeholder Duke). Always refer to it as Atlas; do not reintroduce the name Duke anywhere in the code or docs.
+The chatbot is named Atlas. Always refer to it as Atlas anywhere in the code or docs.
 
 ## Java version:
 
