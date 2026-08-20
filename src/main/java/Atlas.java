@@ -18,8 +18,8 @@ public class Atlas {
      * Parses the number after a mark/unmark/delete command.
      * Returns the 1-based task number, or -1 if it is not a number.
      */
-    static int parseIndex(String line, String command) {
-        String rest = line.substring(command.length() + 1).trim();
+    static int parseIndex(String line, Command cmd) {
+        String rest = line.substring(cmd.word.length() + 1).trim();
         try {
             return Integer.parseInt(rest);
         } catch (NumberFormatException e) {
@@ -31,20 +31,22 @@ public class Atlas {
      * Parses a todo/deadline/event command line into a Task.
      * Throws AtlasException (with an explanation) if the input is malformed.
      */
-    static Task parseTask(String line) throws AtlasException {
-        if (line.equals("todo") || line.startsWith("todo ")) {
-            String desc = line.equals("todo") ? "" : line.substring(5);
+    static Task parseTask(String line, Command cmd) throws AtlasException {
+        int prefixLen = cmd.word.length() + 1; // word plus the separating space, e.g. "todo "
+        switch (cmd) {
+        case TODO: {
+            String desc = line.length() == cmd.word.length() ? "" : line.substring(prefixLen);
             if (desc.trim().isEmpty()) {
                 throw new AtlasException("Name your labour, mortal: todo <desc>");
             }
             return new Todo(desc);
         }
-        if (line.equals("deadline") || line.startsWith("deadline ")) {
+        case DEADLINE: {
             int byPos = line.indexOf(" /by ");
             if (byPos == -1) {
                 throw new AtlasException("The Fates weave on schedule. Use: deadline <desc> /by <when>");
             }
-            String desc = byPos <= 9 ? "" : line.substring(9, byPos);
+            String desc = byPos <= prefixLen ? "" : line.substring(prefixLen, byPos);
             if (desc.trim().isEmpty()) {
                 throw new AtlasException("Name your labour, mortal: deadline <desc> /by <when>");
             }
@@ -54,7 +56,7 @@ public class Atlas {
             }
             return new Deadline(desc, by);
         }
-        if (line.equals("event") || line.startsWith("event ")) {
+        case EVENT: {
             int fromPos = line.indexOf(" /from ");
             if (fromPos == -1) {
                 throw new AtlasException("Even Icarus launched from somewhere. Use: event <desc> /from <start> /to <end>");
@@ -63,7 +65,7 @@ public class Atlas {
             if (toPos == -1) {
                 throw new AtlasException("Icarus never planned a landing either. Use: event <desc> /from <start> /to <end>");
             }
-            String desc = fromPos <= 6 ? "" : line.substring(6, fromPos);
+            String desc = fromPos <= prefixLen ? "" : line.substring(prefixLen, fromPos);
             if (desc.trim().isEmpty()) {
                 throw new AtlasException("Name your labour, mortal: event <desc> /from <start> /to <end>");
             }
@@ -77,7 +79,9 @@ public class Atlas {
             }
             return new Event(desc, from, to);
         }
-        return null;
+        default:
+            throw new AssertionError("Not a task command: " + cmd);
+        }
     }
 
     public static void main(String[] args) {
@@ -95,9 +99,14 @@ public class Atlas {
         Scanner in = new Scanner(System.in);
         String line = in.nextLine();
 
-        while (!line.equals("bye")) {
+        while (!line.equals(Command.BYE.word)) {
             try {
-                if (line.equals("list")) {
+                Command cmd = Command.fromLine(line);
+                if (cmd == null) {
+                    throw new AtlasException("The Oracle is silent on that word. Try: todo, deadline, event, list, mark, unmark, delete, bye.");
+                }
+                switch (cmd) {
+                case LIST:
                     if (tasks.isEmpty()) {
                         speak("Your list is empty.");
                     } else {
@@ -106,47 +115,56 @@ public class Atlas {
                             System.out.println((i + 1) + "." + tasks.get(i));
                         }
                     }
-                } else if (line.startsWith("mark ")) {
-                    int index = parseIndex(line, "mark");
-                    if (index < 1 || index > tasks.size()) {
+                    break;
+                case MARK:
+                    if (line.length() == cmd.word.length()) {
+                        throw new AtlasException("Which labour is complete? Use: mark <number>");
+                    }
+                    int markIndex = parseIndex(line, cmd);
+                    if (markIndex < 1 || markIndex > tasks.size()) {
                         throw new AtlasException("No such task in the pantheon. Use: mark <number>");
                     }
-                    tasks.get(index - 1).markAsDone();
+                    tasks.get(markIndex - 1).markAsDone();
                     speak("Nice! I've marked this task as done:");
-                    speak("  " + tasks.get(index - 1));
-                } else if (line.startsWith("unmark ")) {
-                    int index = parseIndex(line, "unmark");
-                    if (index < 1 || index > tasks.size()) {
+                    speak("  " + tasks.get(markIndex - 1));
+                    break;
+                case UNMARK:
+                    if (line.length() == cmd.word.length()) {
+                        throw new AtlasException("Which labour is not complete? Use: unmark <number>");
+                    }
+                    int unmarkIndex = parseIndex(line, cmd);
+                    if (unmarkIndex < 1 || unmarkIndex > tasks.size()) {
                         throw new AtlasException("No such task in the pantheon. Use: unmark <number>");
                     }
-                    tasks.get(index - 1).markAsNotDone();
+                    tasks.get(unmarkIndex - 1).markAsNotDone();
                     speak("OK, I've marked this task as not done yet:");
-                    speak("  " + tasks.get(index - 1));
-                } else if (line.equals("mark")) {
-                    throw new AtlasException("Which labour is complete? Use: mark <number>");
-                } else if (line.equals("unmark")) {
-                    throw new AtlasException("Which labour is not complete? Use: unmark <number>");
-                } else if (line.startsWith("delete ")) {
-                    int index = parseIndex(line, "delete");
-                    if (index < 1 || index > tasks.size()) {
+                    speak("  " + tasks.get(unmarkIndex - 1));
+                    break;
+                case DELETE:
+                    if (line.length() == cmd.word.length()) {
+                        throw new AtlasException("Which labour shall I release? Use: delete <number>");
+                    }
+                    int deleteIndex = parseIndex(line, cmd);
+                    if (deleteIndex < 1 || deleteIndex > tasks.size()) {
                         throw new AtlasException("No such task in the pantheon. Use: delete <number>");
                     }
-                    Task removed = tasks.remove(index - 1);
+                    Task removed = tasks.remove(deleteIndex - 1);
                     speak("Got it. I've removed this task:");
                     speak("  " + removed);
                     speak("Now you have " + tasks.size() + " task" + (tasks.size() == 1 ? "" : "s") + " in the list.");
-                } else if (line.equals("delete")) {
-                    throw new AtlasException("Which labour shall I release? Use: delete <number>");
-                } else if (line.equals("todo") || line.startsWith("todo ")
-                        || line.equals("deadline") || line.startsWith("deadline ")
-                        || line.equals("event") || line.startsWith("event ")) {
-                    Task t = parseTask(line);
+                    break;
+                case TODO:
+                case DEADLINE:
+                case EVENT:
+                    Task t = parseTask(line, cmd);
                     tasks.add(t);
                     speak("Got it. I've added this task:");
                     speak("  " + t);
                     speak("Now you have " + tasks.size() + " task" + (tasks.size() == 1 ? "" : "s") + " in the list.");
-                } else {
-                    throw new AtlasException("The Oracle is silent on that word. Try: todo, deadline, event, list, mark, unmark, delete, bye.");
+                    break;
+                case BYE:
+                    // Unreachable: the loop condition exits on "bye" before dispatch.
+                    break;
                 }
             } catch (AtlasException e) {
                 speak(e.getMessage());
