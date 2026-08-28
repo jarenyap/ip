@@ -13,7 +13,8 @@ BIN=$(mktemp -d)
 WORK=$(mktemp -d)
 trap 'rm -rf "$BIN" "$WORK"' EXIT
 
-if ! javac -Xlint:none -d "$BIN" "$REPO_ROOT"/src/main/java/*.java; then
+if ! find "$REPO_ROOT/src/main/java" -name '*.java' -print0 \
+    | xargs -0 javac -Xlint:none -d "$BIN"; then
     echo "********** BUILD FAILURE **********"
     exit 1
 fi
@@ -27,12 +28,12 @@ for input in "$REPO_ROOT"/test/cases/*.in; do
     # Run each case in its own temp working dir so Level-7 data files are
     # isolated and every case starts with a fresh task list.
     RUN_DIR=$(mktemp -d "$WORK/case.XXXXXX")
-    output=$(cd "$RUN_DIR" && java -cp "$BIN" Atlas < "$input" 2>&1)
+    output=$(cd "$RUN_DIR" && java -cp "$BIN" atlas.Atlas < "$input" 2>&1)
     status=$?
     # A second input file (<name>.in2) runs again in the same working dir to
     # test persistence across restarts.
     if [ $status -eq 0 ] && [ -f "$second_input" ]; then
-        output2=$(cd "$RUN_DIR" && java -cp "$BIN" Atlas < "$second_input" 2>&1)
+        output2=$(cd "$RUN_DIR" && java -cp "$BIN" atlas.Atlas < "$second_input" 2>&1)
         status=$?
         output="$output"$'\n'"$output2"
     fi

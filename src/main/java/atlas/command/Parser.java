@@ -1,3 +1,10 @@
+package atlas.command;
+
+import atlas.AtlasException;
+import atlas.task.Deadline;
+import atlas.task.Event;
+import atlas.task.Task;
+import atlas.task.Todo;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 
@@ -12,9 +19,9 @@ public class Parser {
      * A line matches a command when it is exactly the command word, or the
      * command word followed by a space and arguments.
      */
-    static Command parseCommand(String line) {
+    public static Command parseCommand(String line) {
         for (Command cmd : Command.values()) {
-            if (line.equals(cmd.word) || line.startsWith(cmd.word + " ")) {
+            if (line.equals(cmd.getWord()) || line.startsWith(cmd.getWord() + " ")) {
                 return cmd;
             }
         }
@@ -25,8 +32,8 @@ public class Parser {
      * Parses the number after a mark/unmark/delete command.
      * Returns the 1-based task number, or -1 if it is not a number.
      */
-    static int parseIndex(String line, Command cmd) {
-        String rest = line.substring(cmd.word.length() + 1).trim();
+    public static int parseIndex(String line, Command cmd) {
+        String rest = line.substring(cmd.getWord().length() + 1).trim();
         try {
             return Integer.parseInt(rest);
         } catch (NumberFormatException e) {
@@ -38,11 +45,11 @@ public class Parser {
      * Parses a todo/deadline/event command line into a Task.
      * Throws AtlasException (with an explanation) if the input is malformed.
      */
-    static Task parseTask(String line, Command cmd) throws AtlasException {
-        int prefixLen = cmd.word.length() + 1; // word plus the separating space, e.g. "todo "
+    public static Task parseTask(String line, Command cmd) throws AtlasException {
+        int prefixLen = cmd.getWord().length() + 1; // word plus the separating space, e.g. "todo "
         switch (cmd) {
         case TODO: {
-            String desc = line.length() == cmd.word.length() ? "" : line.substring(prefixLen);
+            String desc = line.length() == cmd.getWord().length() ? "" : line.substring(prefixLen);
             if (desc.trim().isEmpty()) {
                 throw new AtlasException("Name your labour, mortal: todo <desc>");
             }

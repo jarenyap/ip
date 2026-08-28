@@ -1,3 +1,11 @@
+package atlas;
+
+import atlas.command.Command;
+import atlas.command.Parser;
+import atlas.storage.Storage;
+import atlas.task.Task;
+import atlas.task.TaskList;
+import atlas.ui.Ui;
 import java.util.Scanner;
 
 /**
@@ -24,7 +32,7 @@ public class Atlas {
 
         String line = ui.readLine();
 
-        while (!line.equals(Command.BYE.word)) {
+        while (!line.equals(Command.BYE.getWord())) {
             try {
                 Command cmd = Parser.parseCommand(line);
                 if (cmd == null) {
@@ -42,7 +50,7 @@ public class Atlas {
                     }
                     break;
                 case MARK:
-                    if (line.length() == cmd.word.length()) {
+                    if (line.length() == cmd.getWord().length()) {
                         throw new AtlasException("Which labour is complete? Use: mark <number>");
                     }
                     int markIndex = Parser.parseIndex(line, cmd);
@@ -55,7 +63,7 @@ public class Atlas {
                     ui.speak("  " + tasks.get(markIndex - 1));
                     break;
                 case UNMARK:
-                    if (line.length() == cmd.word.length()) {
+                    if (line.length() == cmd.getWord().length()) {
                         throw new AtlasException("Which labour is not complete? Use: unmark <number>");
                     }
                     int unmarkIndex = Parser.parseIndex(line, cmd);
@@ -68,7 +76,7 @@ public class Atlas {
                     ui.speak("  " + tasks.get(unmarkIndex - 1));
                     break;
                 case DELETE:
-                    if (line.length() == cmd.word.length()) {
+                    if (line.length() == cmd.getWord().length()) {
                         throw new AtlasException("Which labour shall I release? Use: delete <number>");
                     }
                     int deleteIndex = Parser.parseIndex(line, cmd);

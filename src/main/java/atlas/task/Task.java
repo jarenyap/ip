@@ -1,6 +1,9 @@
+package atlas.task;
+
+/** Represents a task that Atlas can track. */
 public class Task {
-    protected String description;
-    protected boolean isDone;
+    private final String description;
+    private boolean isDone;
 
     public Task(String description) {
         this.description = description;
@@ -9,6 +12,16 @@ public class Task {
 
     public String getStatusIcon() {
         return (isDone ? "X" : " "); // mark done task with X
+    }
+
+    /** Returns the task description. */
+    public String getDescription() {
+        return description;
+    }
+
+    /** Returns whether the task has been marked as done. */
+    public boolean isDone() {
+        return isDone;
     }
 
     public void markAsDone() {
