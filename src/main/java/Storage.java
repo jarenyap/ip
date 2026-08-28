@@ -2,6 +2,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -88,7 +90,7 @@ public class Storage {
         }
         if (task instanceof Deadline) {
             Deadline deadline = (Deadline) task;
-            return "D | " + done + " | " + description + " | " + escape(deadline.by);
+            return "D | " + done + " | " + description + " | " + deadline.by.toString();
         }
         if (task instanceof Event) {
             Event event = (Event) task;
@@ -124,7 +126,13 @@ public class Storage {
             if (parts.length != 4) {
                 throw new AtlasException("deadline needs a by field");
             }
-            Deadline deadline = new Deadline(description, unescape(parts[3].trim()));
+            LocalDate by;
+            try {
+                by = LocalDate.parse(unescape(parts[3].trim()));
+            } catch (DateTimeParseException e) {
+                throw new AtlasException("deadline by is not a date");
+            }
+            Deadline deadline = new Deadline(description, by);
             if (isDone) {
                 deadline.markAsDone();
             }

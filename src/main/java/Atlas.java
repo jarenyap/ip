@@ -1,3 +1,5 @@
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Scanner;
 
@@ -50,9 +52,16 @@ public class Atlas {
             if (desc.trim().isEmpty()) {
                 throw new AtlasException("Name your labour, mortal: deadline <desc> /by <when>");
             }
-            String by = line.substring(byPos + 5);
-            if (by.trim().isEmpty()) {
+            String byText = line.substring(byPos + 5);
+            if (byText.trim().isEmpty()) {
                 throw new AtlasException("The Fates weave on schedule. Use: deadline <desc> /by <when>");
+            }
+            LocalDate by;
+            try {
+                by = LocalDate.parse(byText.trim());
+            } catch (DateTimeParseException e) {
+                throw new AtlasException("The Fates cannot read that date, mortal. "
+                        + "Use: deadline <desc> /by yyyy-mm-dd");
             }
             return new Deadline(desc, by);
         }
