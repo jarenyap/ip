@@ -34,7 +34,7 @@ Prerequisites: JDK 25, update IntelliJ to the most recent version.
    1. If there are any further prompts, accept the defaults.
 1. Configure the project to use **JDK 25** (not other versions) as explained in [here](https://www.jetbrains.com/help/idea/sdk.html#set-up-jdk).<br>
    In the same dialog, set the **Project language level** field to the `SDK default` option.
-1. After that, locate the `src/main/java/Atlas.java` file, right-click it, and choose `Run Atlas.main()`. If the setup is correct, you should see something like the below as the output:
+1. After that, locate the `src/main/java/atlas/Atlas.java` file, right-click it, and choose `Run Atlas.main()`. If the setup is correct, you should see something like the below as the output:
 
 ```
      _  _____ _        _    ____
@@ -61,4 +61,4 @@ Run the UI regression harness from the project root:
 ./test/ui-test.sh
 ```
 
-It runs 18 scripted sessions against a clean build and verifies the expected output for every command and error path.
+It runs 20 scripted sessions against a clean build and verifies the expected output for every command and error path.

@@ -1,3 +1,5 @@
+package atlas;
+
 /**
  * Represents an error caused by invalid user input to Atlas.
  */

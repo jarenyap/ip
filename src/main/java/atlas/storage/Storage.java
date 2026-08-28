@@ -1,3 +1,10 @@
+package atlas.storage;
+
+import atlas.AtlasException;
+import atlas.task.Deadline;
+import atlas.task.Event;
+import atlas.task.Task;
+import atlas.task.Todo;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -83,19 +90,19 @@ public class Storage {
     }
 
     private String toFileLine(Task task) {
-        String done = task.isDone ? "1" : "0";
-        String description = escape(task.description);
+        String done = task.isDone() ? "1" : "0";
+        String description = escape(task.getDescription());
         if (task instanceof Todo) {
             return "T | " + done + " | " + description;
         }
         if (task instanceof Deadline) {
             Deadline deadline = (Deadline) task;
-            return "D | " + done + " | " + description + " | " + deadline.by.toString();
+            return "D | " + done + " | " + description + " | " + deadline.getBy().toString();
         }
         if (task instanceof Event) {
             Event event = (Event) task;
-            return "E | " + done + " | " + description + " | " + escape(event.from)
-                    + " | " + escape(event.to);
+            return "E | " + done + " | " + description + " | " + escape(event.getFrom())
+                    + " | " + escape(event.getTo());
         }
         throw new AssertionError("Unknown task type: " + task);
     }

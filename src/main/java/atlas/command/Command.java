@@ -1,7 +1,9 @@
+package atlas.command;
+
 /**
  * The commands Atlas understands.
  */
-enum Command {
+public enum Command {
     BYE("bye"),
     LIST("list"),
     MARK("mark"),
@@ -11,9 +13,14 @@ enum Command {
     DEADLINE("deadline"),
     EVENT("event");
 
-    final String word;
+    private final String word;
 
     Command(String word) {
         this.word = word;
+    }
+
+    /** Returns the text users type to invoke this command. */
+    public String getWord() {
+        return word;
     }
 }
