@@ -1,5 +1,5 @@
 /**
- * The commands Atlas understands, and how to recognise them in a line of input.
+ * The commands Atlas understands.
  */
 enum Command {
     BYE("bye"),
@@ -15,19 +15,5 @@ enum Command {
 
     Command(String word) {
         this.word = word;
-    }
-
-    /**
-     * Returns the command a line starts with, or null if the line is not a command.
-     * A line matches a command when it is exactly the command word, or the
-     * command word followed by a space and arguments.
-     */
-    static Command fromLine(String line) {
-        for (Command cmd : values()) {
-            if (line.equals(cmd.word) || line.startsWith(cmd.word + " ")) {
-                return cmd;
-            }
-        }
-        return null;
     }
 }
