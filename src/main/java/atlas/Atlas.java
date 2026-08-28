@@ -6,6 +6,7 @@ import atlas.storage.Storage;
 import atlas.task.Task;
 import atlas.task.TaskList;
 import atlas.ui.Ui;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 /**
@@ -36,7 +37,8 @@ public class Atlas {
             try {
                 Command cmd = Parser.parseCommand(line);
                 if (cmd == null) {
-                    throw new AtlasException("The Oracle is silent on that word. Try: todo, deadline, event, list, mark, unmark, delete, bye.");
+                    throw new AtlasException("The Oracle is silent on that word. Try: todo, deadline, event, "
+                            + "list, mark, unmark, delete, find, bye.");
                 }
                 switch (cmd) {
                 case LIST:
@@ -88,6 +90,18 @@ public class Atlas {
                     ui.speak("Got it. I've removed this task:");
                     ui.speak("  " + removed);
                     ui.speak("Now you have " + tasks.size() + " task" + (tasks.size() == 1 ? "" : "s") + " in the list.");
+                    break;
+                case FIND:
+                    String keyword = Parser.parseKeyword(line, cmd);
+                    ArrayList<Task> matches = tasks.find(keyword);
+                    if (matches.isEmpty()) {
+                        ui.speak("The Oracle found no matching tasks.");
+                    } else {
+                        ui.speak("Here are the matching tasks in your list:");
+                        for (int i = 0; i < matches.size(); i++) {
+                            ui.print((i + 1) + "." + matches.get(i));
+                        }
+                    }
                     break;
                 case TODO:
                 case DEADLINE:

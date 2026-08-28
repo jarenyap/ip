@@ -21,8 +21,18 @@ public class ParserTest {
         assertEquals(Command.TODO, Parser.parseCommand("todo read"));
         assertEquals(Command.DEADLINE, Parser.parseCommand("deadline submit /by 2026-09-01"));
         assertEquals(Command.EVENT, Parser.parseCommand("event meeting /from 2pm /to 3pm"));
+        assertEquals(Command.FIND, Parser.parseCommand("find book"));
         assertNull(Parser.parseCommand("today"));
         assertNull(Parser.parseCommand("todoist read"));
+    }
+
+    @Test
+    void parsesFindKeywordAndRejectsBlankKeyword() throws AtlasException {
+        assertEquals("book", Parser.parseKeyword("find book", Command.FIND));
+
+        AtlasException exception = assertThrows(AtlasException.class,
+                () -> Parser.parseKeyword("find ", Command.FIND));
+        assertEquals("What shall I seek, mortal? Use: find <keyword>", exception.getMessage());
     }
 
     @Test

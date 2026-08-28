@@ -13,6 +13,7 @@ Atlas is a personal task-management chatbot with a Greek-oracle personality. It 
 | `mark` | `mark <number>` | Marks a task as done |
 | `unmark` | `unmark <number>` | Marks a task as not done |
 | `delete` | `delete <number>` | Removes a task |
+| `find` | `find <keyword>` | Shows tasks whose descriptions contain the keyword |
 | `bye` | `bye` | Exits Atlas |
 
 Example session:

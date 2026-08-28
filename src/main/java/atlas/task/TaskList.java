@@ -38,6 +38,23 @@ public class TaskList {
         return tasks.remove(index);
     }
 
+    /**
+     * Returns tasks whose descriptions contain the supplied keyword.
+     * Matching is case-sensitive and preserves the original task order.
+     *
+     * @param keyword text to search for in each task description.
+     * @return matching tasks, or an empty list when no task matches.
+     */
+    public ArrayList<Task> find(String keyword) {
+        ArrayList<Task> matches = new ArrayList<>();
+        for (Task task : tasks) {
+            if (task.getDescription().contains(keyword)) {
+                matches.add(task);
+            }
+        }
+        return matches;
+    }
+
     /** Returns the underlying list, for saving to disk. */
     public ArrayList<Task> all() {
         return tasks;

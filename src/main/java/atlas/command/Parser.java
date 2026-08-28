@@ -42,6 +42,22 @@ public class Parser {
     }
 
     /**
+     * Parses the keyword after a find command.
+     *
+     * @param line input line containing the find command and keyword.
+     * @param cmd find command whose argument should be parsed.
+     * @return trimmed keyword to search for.
+     * @throws AtlasException if no keyword was supplied.
+     */
+    public static String parseKeyword(String line, Command cmd) throws AtlasException {
+        String keyword = line.substring(cmd.getWord().length()).trim();
+        if (keyword.isEmpty()) {
+            throw new AtlasException("What shall I seek, mortal? Use: find <keyword>");
+        }
+        return keyword;
+    }
+
+    /**
      * Parses a todo/deadline/event command line into a Task.
      * Throws AtlasException (with an explanation) if the input is malformed.
      */
