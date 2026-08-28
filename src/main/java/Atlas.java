@@ -94,7 +94,14 @@ public class Atlas {
         speak("Hello! I'm Atlas, your personal assistant.");
         speak("What can I do for you?");
 
-        ArrayList<Task> tasks = new ArrayList<>();
+        Storage storage = new Storage("./data/atlas.txt");
+        ArrayList<Task> tasks;
+        try {
+            tasks = storage.load();
+        } catch (AtlasException e) {
+            speak(e.getMessage());
+            tasks = new ArrayList<>();
+        }
 
         Scanner in = new Scanner(System.in);
         String line = in.nextLine();
@@ -125,6 +132,7 @@ public class Atlas {
                         throw new AtlasException("No such task in the pantheon. Use: mark <number>");
                     }
                     tasks.get(markIndex - 1).markAsDone();
+                    storage.save(tasks);
                     speak("Nice! I've marked this task as done:");
                     speak("  " + tasks.get(markIndex - 1));
                     break;
@@ -137,6 +145,7 @@ public class Atlas {
                         throw new AtlasException("No such task in the pantheon. Use: unmark <number>");
                     }
                     tasks.get(unmarkIndex - 1).markAsNotDone();
+                    storage.save(tasks);
                     speak("OK, I've marked this task as not done yet:");
                     speak("  " + tasks.get(unmarkIndex - 1));
                     break;
@@ -149,6 +158,7 @@ public class Atlas {
                         throw new AtlasException("No such task in the pantheon. Use: delete <number>");
                     }
                     Task removed = tasks.remove(deleteIndex - 1);
+                    storage.save(tasks);
                     speak("Got it. I've removed this task:");
                     speak("  " + removed);
                     speak("Now you have " + tasks.size() + " task" + (tasks.size() == 1 ? "" : "s") + " in the list.");
@@ -158,6 +168,7 @@ public class Atlas {
                 case EVENT:
                     Task t = parseTask(line, cmd);
                     tasks.add(t);
+                    storage.save(tasks);
                     speak("Got it. I've added this task:");
                     speak("  " + t);
                     speak("Now you have " + tasks.size() + " task" + (tasks.size() == 1 ? "" : "s") + " in the list.");

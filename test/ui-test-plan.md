@@ -2,13 +2,19 @@
 
 Run with: `test/ui-test.sh` (from the repo root).
 
-Each case has two files under `test/cases/`:
+Each case has these files under `test/cases/`:
 
 - `<name>.in` — commands fed to Atlas (must end with `bye`)
 - `<name>.expected` — lines that must appear in the output (substring match,
   mirroring the course grading scripts; tolerant of bubble formatting).
   Indexed list lines (e.g. `1.[T][ ] task`) only occur in `list` output, so
   they prove stored state rather than acknowledgement text.
+- `<name>.in2` (optional) — a second session run in the same working
+  directory after the first, used to test persistence across restarts.
+  Expected substrings cover both runs' combined output.
+
+Each case runs in its own temporary working directory, so Level-7 data files
+are isolated and every case starts with a fresh task list.
 
 ## Cases
 
@@ -32,6 +38,7 @@ Each case has two files under `test/cases/`:
 | `delete-only` | deleting the last task empties the list cleanly | `todo only`, `delete 1`, `list`, `bye` | Removed shown; `Now you have 0 tasks in the list.`; `Your list is empty.` |
 | `state-recovery` | errors leave the list untouched; mark/delete after errors work | `todo keep`, `deadline due /by Fri`, `event meet /from 10am /to 11am`, `deadline broken`, `mark 99`, `delete 99`, `list`, `mark 2`, `delete 1`, `list`, `unmark 1`, `list`, `bye` | Errors do not add tasks; indexed snapshots prove keep removed, due stays marked through the delete, then unmarks |
 | `large-list` | dynamic sizing and storage correctness beyond 100 tasks | 101 `todo task N` commands, `list`, `mark 101`, `delete 1`, `list`, `bye` | Indexed lines for tasks 1/100/101; 101st markable; after delete: renumbered, 101st still marked, count 100 |
+| `level7-persistence` | Level-7: save on change, load on restart | run 1: add todo/deadline/event, `mark 2`, `list`, `bye`; run 2: `list`, `unmark 2`, `list`, `delete 1`, `list`, `bye` | Run 2 lists run 1's tasks loaded from disk with mark intact; unmark and delete persist and renumber |
 
 ## Maintenance rule
 
