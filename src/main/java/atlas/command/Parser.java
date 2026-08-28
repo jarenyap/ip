@@ -60,64 +60,64 @@ public class Parser {
     public static Task parseTask(String line, Command cmd) throws AtlasException {
         int prefixLen = cmd.getWord().length() + 1; // word plus the separating space, e.g. "todo "
         switch (cmd) {
-        case TODO: {
-            String desc = line.length() == cmd.getWord().length() ? "" : line.substring(prefixLen);
-            if (desc.trim().isEmpty()) {
-                throw new AtlasException("Name your labour, mortal: todo <desc>");
+            case TODO: {
+                String desc = line.length() == cmd.getWord().length() ? "" : line.substring(prefixLen);
+                if (desc.trim().isEmpty()) {
+                    throw new AtlasException("Name your labour, mortal: todo <desc>");
+                }
+                return new Todo(desc);
             }
-            return new Todo(desc);
-        }
-        case DEADLINE: {
-            int byPos = line.indexOf(" /by ");
-            if (byPos == -1) {
-                throw new AtlasException("The Fates weave on schedule. Use: deadline <desc> /by <when>");
+            case DEADLINE: {
+                int byPos = line.indexOf(" /by ");
+                if (byPos == -1) {
+                    throw new AtlasException("The Fates weave on schedule. Use: deadline <desc> /by <when>");
+                }
+                String desc = byPos <= prefixLen ? "" : line.substring(prefixLen, byPos);
+                if (desc.trim().isEmpty()) {
+                    throw new AtlasException("Name your labour, mortal: deadline <desc> /by <when>");
+                }
+                String byText = line.substring(byPos + 5);
+                if (byText.trim().isEmpty()) {
+                    throw new AtlasException("The Fates weave on schedule. Use: deadline <desc> /by <when>");
+                }
+                LocalDate by;
+                try {
+                    by = LocalDate.parse(byText.trim());
+                } catch (DateTimeParseException e) {
+                    throw new AtlasException("The Fates cannot read that date, mortal. "
+                            + "Use: deadline <desc> /by yyyy-mm-dd");
+                }
+                return new Deadline(desc, by);
             }
-            String desc = byPos <= prefixLen ? "" : line.substring(prefixLen, byPos);
-            if (desc.trim().isEmpty()) {
-                throw new AtlasException("Name your labour, mortal: deadline <desc> /by <when>");
+            case EVENT: {
+                int fromPos = line.indexOf(" /from ");
+                if (fromPos == -1) {
+                    throw new AtlasException("Even Icarus launched from somewhere. "
+                            + "Use: event <desc> /from <start> /to <end>");
+                }
+                int toPos = line.indexOf(" /to ", fromPos);
+                if (toPos == -1) {
+                    throw new AtlasException("Icarus never planned a landing either. "
+                            + "Use: event <desc> /from <start> /to <end>");
+                }
+                String desc = fromPos <= prefixLen ? "" : line.substring(prefixLen, fromPos);
+                if (desc.trim().isEmpty()) {
+                    throw new AtlasException("Name your labour, mortal: event <desc> /from <start> /to <end>");
+                }
+                String from = line.substring(fromPos + 7, toPos);
+                if (from.trim().isEmpty()) {
+                    throw new AtlasException("Even Icarus launched from somewhere. "
+                            + "Use: event <desc> /from <start> /to <end>");
+                }
+                String to = line.substring(toPos + 5);
+                if (to.trim().isEmpty()) {
+                    throw new AtlasException("Icarus never planned a landing either. "
+                            + "Use: event <desc> /from <start> /to <end>");
+                }
+                return new Event(desc, from, to);
             }
-            String byText = line.substring(byPos + 5);
-            if (byText.trim().isEmpty()) {
-                throw new AtlasException("The Fates weave on schedule. Use: deadline <desc> /by <when>");
-            }
-            LocalDate by;
-            try {
-                by = LocalDate.parse(byText.trim());
-            } catch (DateTimeParseException e) {
-                throw new AtlasException("The Fates cannot read that date, mortal. "
-                        + "Use: deadline <desc> /by yyyy-mm-dd");
-            }
-            return new Deadline(desc, by);
-        }
-        case EVENT: {
-            int fromPos = line.indexOf(" /from ");
-            if (fromPos == -1) {
-                throw new AtlasException("Even Icarus launched from somewhere. "
-                        + "Use: event <desc> /from <start> /to <end>");
-            }
-            int toPos = line.indexOf(" /to ", fromPos);
-            if (toPos == -1) {
-                throw new AtlasException("Icarus never planned a landing either. "
-                        + "Use: event <desc> /from <start> /to <end>");
-            }
-            String desc = fromPos <= prefixLen ? "" : line.substring(prefixLen, fromPos);
-            if (desc.trim().isEmpty()) {
-                throw new AtlasException("Name your labour, mortal: event <desc> /from <start> /to <end>");
-            }
-            String from = line.substring(fromPos + 7, toPos);
-            if (from.trim().isEmpty()) {
-                throw new AtlasException("Even Icarus launched from somewhere. "
-                        + "Use: event <desc> /from <start> /to <end>");
-            }
-            String to = line.substring(toPos + 5);
-            if (to.trim().isEmpty()) {
-                throw new AtlasException("Icarus never planned a landing either. "
-                        + "Use: event <desc> /from <start> /to <end>");
-            }
-            return new Event(desc, from, to);
-        }
-        default:
-            throw new AssertionError("Not a task command: " + cmd);
+            default:
+                throw new AssertionError("Not a task command: " + cmd);
         }
     }
 }

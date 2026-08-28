@@ -60,6 +60,7 @@ public class Task {
      *
      * @return status icon followed by the task description.
      */
+    @Override
     public String toString() {
         return "[" + getStatusIcon() + "] " + description;
     }
