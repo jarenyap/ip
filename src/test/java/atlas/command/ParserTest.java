@@ -1,5 +1,10 @@
 package atlas.command;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import atlas.AtlasException;
 import atlas.task.Deadline;
 import atlas.task.Event;
@@ -7,11 +12,6 @@ import atlas.task.Task;
 import atlas.task.Todo;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** Tests command recognition and task parsing. */
 public class ParserTest {

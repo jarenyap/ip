@@ -120,41 +120,41 @@ public class Storage {
         boolean isDone = doneField.equals("1");
         String description = unescape(parts[2].trim());
         switch (type) {
-        case "T":
-            if (parts.length != 3) {
-                throw new AtlasException("todo has extra fields");
-            }
-            Todo todo = new Todo(description);
-            if (isDone) {
-                todo.markAsDone();
-            }
-            return todo;
-        case "D":
-            if (parts.length != 4) {
-                throw new AtlasException("deadline needs a by field");
-            }
-            LocalDate by;
-            try {
-                by = LocalDate.parse(unescape(parts[3].trim()));
-            } catch (DateTimeParseException e) {
-                throw new AtlasException("deadline by is not a date");
-            }
-            Deadline deadline = new Deadline(description, by);
-            if (isDone) {
-                deadline.markAsDone();
-            }
-            return deadline;
-        case "E":
-            if (parts.length != 5) {
-                throw new AtlasException("event needs from and to fields");
-            }
-            Event event = new Event(description, unescape(parts[3].trim()), unescape(parts[4].trim()));
-            if (isDone) {
-                event.markAsDone();
-            }
-            return event;
-        default:
-            throw new AtlasException("unknown task type '" + type + "'");
+            case "T":
+                if (parts.length != 3) {
+                    throw new AtlasException("todo has extra fields");
+                }
+                Todo todo = new Todo(description);
+                if (isDone) {
+                    todo.markAsDone();
+                }
+                return todo;
+            case "D":
+                if (parts.length != 4) {
+                    throw new AtlasException("deadline needs a by field");
+                }
+                LocalDate by;
+                try {
+                    by = LocalDate.parse(unescape(parts[3].trim()));
+                } catch (DateTimeParseException e) {
+                    throw new AtlasException("deadline by is not a date");
+                }
+                Deadline deadline = new Deadline(description, by);
+                if (isDone) {
+                    deadline.markAsDone();
+                }
+                return deadline;
+            case "E":
+                if (parts.length != 5) {
+                    throw new AtlasException("event needs from and to fields");
+                }
+                Event event = new Event(description, unescape(parts[3].trim()), unescape(parts[4].trim()));
+                if (isDone) {
+                    event.markAsDone();
+                }
+                return event;
+            default:
+                throw new AtlasException("unknown task type '" + type + "'");
         }
     }
 
