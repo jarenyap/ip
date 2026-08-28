@@ -15,6 +15,11 @@ import java.util.Scanner;
  */
 public class Atlas {
 
+    /**
+     * Starts Atlas and processes commands until the user exits.
+     *
+     * @param args command-line arguments, which Atlas does not currently use.
+     */
     public static void main(String[] args) {
         Ui ui = new Ui(new Scanner(System.in));
         ui.printBanner();

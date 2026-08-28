@@ -29,8 +29,14 @@ import java.util.List;
  */
 public class Storage {
 
+    /** Location of the file used to persist Atlas tasks. */
     private final Path filePath;
 
+    /**
+     * Creates a storage object that uses the specified file.
+     *
+     * @param filePath path to the task data file.
+     */
     public Storage(String filePath) {
         this.filePath = Paths.get(filePath);
     }
@@ -41,6 +47,7 @@ public class Storage {
      * Lines that cannot be parsed are skipped with a warning, so one corrupted
      * line does not destroy the rest of the list.
      *
+     * @return tasks successfully loaded from the file.
      * @throws AtlasException if the file exists but cannot be read
      */
     public ArrayList<Task> load() throws AtlasException {
@@ -72,6 +79,7 @@ public class Storage {
      * Saves every task to the data file, creating the data folder first if it
      * does not exist.
      *
+     * @param tasks tasks to save.
      * @throws AtlasException if the file cannot be written
      */
     public void save(ArrayList<Task> tasks) throws AtlasException {
@@ -89,6 +97,12 @@ public class Storage {
         }
     }
 
+    /**
+     * Converts a task into its escaped single-line storage representation.
+     *
+     * @param task task to serialize.
+     * @return storage line for the task.
+     */
     private String toFileLine(Task task) {
         String done = task.isDone() ? "1" : "0";
         String description = escape(task.getDescription());
@@ -107,6 +121,13 @@ public class Storage {
         throw new AssertionError("Unknown task type: " + task);
     }
 
+    /**
+     * Parses one storage line into a task.
+     *
+     * @param line storage line to parse.
+     * @return task represented by the line.
+     * @throws AtlasException if the line is malformed or uses an unknown type.
+     */
     private Task parseLine(String line) throws AtlasException {
         String[] parts = line.split("(?<!\\\\)\\|", -1);
         if (parts.length < 3) {
@@ -158,10 +179,22 @@ public class Storage {
         }
     }
 
+    /**
+     * Escapes delimiters and escape characters before writing task text.
+     *
+     * @param text text to escape.
+     * @return escaped text.
+     */
     private static String escape(String text) {
         return text.replace("\\", "\\\\").replace("|", "\\|");
     }
 
+    /**
+     * Restores delimiters and escape characters after reading task text.
+     *
+     * @param text escaped text to restore.
+     * @return unescaped text.
+     */
     private static String unescape(String text) {
         return text.replace("\\\\", "\\").replace("\\|", "|");
     }

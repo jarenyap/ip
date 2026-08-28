@@ -18,6 +18,9 @@ public class Parser {
      * Returns the command a line starts with, or null if the line is not a command.
      * A line matches a command when it is exactly the command word, or the
      * command word followed by a space and arguments.
+     *
+     * @param line input line to inspect.
+     * @return command identified at the start of the line, or {@code null}.
      */
     public static Command parseCommand(String line) {
         for (Command cmd : Command.values()) {
@@ -31,6 +34,10 @@ public class Parser {
     /**
      * Parses the number after a mark/unmark/delete command.
      * Returns the 1-based task number, or -1 if it is not a number.
+     *
+     * @param line input line containing the command and task number.
+     * @param cmd command whose argument should be parsed.
+     * @return parsed 1-based task number, or {@code -1} when invalid.
      */
     public static int parseIndex(String line, Command cmd) {
         String rest = line.substring(cmd.getWord().length() + 1).trim();
@@ -44,6 +51,11 @@ public class Parser {
     /**
      * Parses a todo/deadline/event command line into a Task.
      * Throws AtlasException (with an explanation) if the input is malformed.
+     *
+     * @param line input line containing a task command.
+     * @param cmd task command to parse.
+     * @return task represented by the line.
+     * @throws AtlasException if the input is malformed.
      */
     public static Task parseTask(String line, Command cmd) throws AtlasException {
         int prefixLen = cmd.getWord().length() + 1; // word plus the separating space, e.g. "todo "
