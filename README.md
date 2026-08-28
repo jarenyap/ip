@@ -53,6 +53,22 @@ Prerequisites: JDK 25, update IntelliJ to the most recent version.
 
 **Warning:** Keep the `src\main\java` folder as the root folder for Java files (i.e., don't rename those folders or move Java files to another folder outside of this folder path), as this is the default location some tools (e.g., Gradle) expect to find Java files.
 
+## Running with Gradle
+
+The Gradle wrapper lets you build and run Atlas without installing Gradle separately. Make sure Java 25 is active, then run these commands from the project root:
+
+```
+./gradlew run
+```
+
+To create the runnable JAR:
+
+```
+./gradlew shadowJar
+```
+
+The JAR is written to `build/libs/atlas.jar`.
+
 ## Testing
 
 Run the UI regression harness from the project root:
