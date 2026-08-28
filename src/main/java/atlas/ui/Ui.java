@@ -15,6 +15,11 @@ public class Ui {
 
     private final Scanner in;
 
+    /**
+     * Creates a user interface that reads commands from the supplied scanner.
+     *
+     * @param in scanner providing user input.
+     */
     public Ui(Scanner in) {
         this.in = in;
     }
@@ -27,6 +32,8 @@ public class Ui {
     /**
      * Prints a message inside a speech bubble.
      * The bubble width adapts to the message length.
+     *
+     * @param message message to display.
      */
     public void speak(String message) {
         String border = "─".repeat(message.length() + 2);
@@ -35,12 +42,20 @@ public class Ui {
         System.out.println("╰" + border + "╯");
     }
 
-    /** Prints a line without decoration (used for task listings). */
+    /**
+     * Prints a line without decoration (used for task listings).
+     *
+     * @param text text to print.
+     */
     public void print(String text) {
         System.out.println(text);
     }
 
-    /** Reads the next command line from the user. */
+    /**
+     * Reads the next command line from the user.
+     *
+     * @return next line supplied by the user.
+     */
     public String readLine() {
         return in.nextLine();
     }
