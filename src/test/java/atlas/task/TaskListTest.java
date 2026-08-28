@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 
 /** Tests adding, retrieving, and removing tasks from a task list. */
@@ -44,5 +45,23 @@ public class TaskListTest {
         assertSame(first, removed);
         assertEquals(1, taskList.size());
         assertSame(second, taskList.get(0));
+    }
+
+    @Test
+    void findingTasksMatchesDescriptionsInOrder() {
+        TaskList taskList = new TaskList();
+        Task first = new Todo("read book");
+        Task second = new Todo("visit museum");
+        Task third = new Todo("return book");
+        taskList.add(first);
+        taskList.add(second);
+        taskList.add(third);
+
+        ArrayList<Task> matches = taskList.find("book");
+
+        assertEquals(2, matches.size());
+        assertSame(first, matches.get(0));
+        assertSame(third, matches.get(1));
+        assertTrue(taskList.find("BOOK").isEmpty());
     }
 }

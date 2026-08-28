@@ -14,6 +14,8 @@ public enum Command {
     UNMARK("unmark"),
     /** Removes a task. */
     DELETE("delete"),
+    /** Finds tasks containing a keyword. */
+    FIND("find"),
     /** Adds a todo task. */
     TODO("todo"),
     /** Adds a deadline task. */
