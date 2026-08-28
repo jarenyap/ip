@@ -71,6 +71,12 @@ The JAR is written to `build/libs/atlas.jar`.
 
 ## Testing
 
+Run the JUnit unit tests with Gradle:
+
+```
+./gradlew test
+```
+
 Run the UI regression harness from the project root:
 
 ```
