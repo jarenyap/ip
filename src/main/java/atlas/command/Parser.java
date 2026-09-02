@@ -1,12 +1,13 @@
 package atlas.command;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+
 import atlas.AtlasException;
 import atlas.task.Deadline;
 import atlas.task.Event;
 import atlas.task.Task;
 import atlas.task.Todo;
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 
 /**
  * Makes sense of user commands: recognises the command word, and

@@ -1,13 +1,14 @@
 package atlas;
 
+import java.util.ArrayList;
+import java.util.Scanner;
+
 import atlas.command.Command;
 import atlas.command.Parser;
 import atlas.storage.Storage;
 import atlas.task.Task;
 import atlas.task.TaskList;
 import atlas.ui.Ui;
-import java.util.ArrayList;
-import java.util.Scanner;
 
 /**
  * The entry point of the Atlas chatbot.
@@ -123,6 +124,8 @@ public class Atlas {
                     case BYE:
                         // Unreachable: the loop condition exits on "bye" before dispatch.
                         break;
+                    default:
+                        throw new AssertionError("Every command is handled above");
                 }
             } catch (AtlasException e) {
                 ui.speak(e.getMessage());

@@ -5,13 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.time.LocalDate;
+
+import org.junit.jupiter.api.Test;
+
 import atlas.AtlasException;
 import atlas.task.Deadline;
 import atlas.task.Event;
 import atlas.task.Task;
 import atlas.task.Todo;
-import java.time.LocalDate;
-import org.junit.jupiter.api.Test;
 
 /** Tests command recognition and task parsing. */
 public class ParserTest {
@@ -30,8 +32,8 @@ public class ParserTest {
     void parsesFindKeywordAndRejectsBlankKeyword() throws AtlasException {
         assertEquals("book", Parser.parseKeyword("find book", Command.FIND));
 
-        AtlasException exception = assertThrows(AtlasException.class,
-                () -> Parser.parseKeyword("find ", Command.FIND));
+        AtlasException exception = assertThrows(AtlasException.class, () ->
+                Parser.parseKeyword("find ", Command.FIND));
         assertEquals("What shall I seek, mortal? Use: find <keyword>", exception.getMessage());
     }
 
@@ -71,12 +73,12 @@ public class ParserTest {
 
     @Test
     void rejectsMalformedDeadlineAndEventCommands() {
-        AtlasException missingBy = assertThrows(AtlasException.class,
-                () -> Parser.parseTask("deadline submit", Command.DEADLINE));
-        AtlasException invalidDate = assertThrows(AtlasException.class,
-                () -> Parser.parseTask("deadline submit /by tomorrow", Command.DEADLINE));
-        AtlasException missingTo = assertThrows(AtlasException.class,
-                () -> Parser.parseTask("event meeting /from 2pm", Command.EVENT));
+        AtlasException missingBy = assertThrows(AtlasException.class, () ->
+                Parser.parseTask("deadline submit", Command.DEADLINE));
+        AtlasException invalidDate = assertThrows(AtlasException.class, () ->
+                Parser.parseTask("deadline submit /by tomorrow", Command.DEADLINE));
+        AtlasException missingTo = assertThrows(AtlasException.class, () ->
+                Parser.parseTask("event meeting /from 2pm", Command.EVENT));
 
         assertEquals("The Fates weave on schedule. Use: deadline <desc> /by <when>", missingBy.getMessage());
         assertEquals("The Fates cannot read that date, mortal. Use: deadline <desc> /by yyyy-mm-dd",
@@ -87,8 +89,8 @@ public class ParserTest {
 
     @Test
     void rejectsTaskCommandsWithBlankDescriptions() {
-        AtlasException exception = assertThrows(AtlasException.class,
-                () -> Parser.parseTask("todo  ", Command.TODO));
+        AtlasException exception = assertThrows(AtlasException.class, () ->
+                Parser.parseTask("todo  ", Command.TODO));
 
         assertEquals("Name your labour, mortal: todo <desc>", exception.getMessage());
     }
