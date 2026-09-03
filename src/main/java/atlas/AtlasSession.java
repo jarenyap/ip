@@ -120,8 +120,8 @@ public class AtlasSession {
                             + (tasks.size() == 1 ? "" : "s") + " in the list.");
                     break;
                 case FIND:
-                    String keyword = Parser.parseKeyword(line, cmd);
-                    ArrayList<Task> matches = tasks.find(keyword);
+                    String[] keywords = Parser.parseKeywords(line, cmd);
+                    ArrayList<Task> matches = tasks.find(keywords);
                     if (matches.isEmpty()) {
                         output.speak("The Oracle found no matching tasks.");
                     } else {

@@ -72,17 +72,22 @@ public class TaskList {
     }
 
     /**
-     * Returns tasks whose descriptions contain the supplied keyword.
-     * Matching is case-sensitive and preserves the original task order.
+     * Returns tasks whose descriptions contain any of the supplied keywords.
+     * Matching is case-sensitive, ORs the keywords together, and preserves
+     * the original task order. The keywords are passed as varargs, e.g.
+     * find("book") or find("book", "paper").
      *
-     * @param keyword text to search for in each task description.
+     * @param keywords one or more text fragments to search for.
      * @return matching tasks, or an empty list when no task matches.
      */
-    public ArrayList<Task> find(String keyword) {
+    public ArrayList<Task> find(String... keywords) {
         ArrayList<Task> matches = new ArrayList<>();
         for (Task task : tasks) {
-            if (task.getDescription().contains(keyword)) {
-                matches.add(task);
+            for (String keyword : keywords) {
+                if (task.getDescription().contains(keyword)) {
+                    matches.add(task);
+                    break;
+                }
             }
         }
         return matches;

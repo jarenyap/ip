@@ -65,4 +65,23 @@ public class TaskListTest {
         assertSame(third, matches.get(1));
         assertTrue(taskList.find("BOOK").isEmpty());
     }
+
+    @Test
+    void findingWithMultipleKeywordsMatchesAnyOfThem() {
+        TaskList taskList = new TaskList();
+        Task first = new Todo("read book");
+        Task second = new Todo("visit museum");
+        Task third = new Todo("return book");
+        taskList.add(first);
+        taskList.add(second);
+        taskList.add(third);
+
+        ArrayList<Task> matches = taskList.find("museum", "book");
+
+        assertEquals(3, matches.size());
+        assertSame(first, matches.get(0));
+        assertSame(second, matches.get(1));
+        assertSame(third, matches.get(2));
+        assertTrue(taskList.find("nonsense", "missing").isEmpty());
+    }
 }

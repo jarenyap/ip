@@ -50,19 +50,20 @@ public class Parser {
     }
 
     /**
-     * Parses the keyword after a find command.
+     * Parses the keywords after a find command, one per whitespace-separated
+     * word, e.g. "find book paper" yields two keywords.
      *
-     * @param line input line containing the find command and keyword.
+     * @param line input line containing the find command and keywords.
      * @param cmd find command whose argument should be parsed.
-     * @return trimmed keyword to search for.
+     * @return the keywords to search for.
      * @throws AtlasException if no keyword was supplied.
      */
-    public static String parseKeyword(String line, Command cmd) throws AtlasException {
-        String keyword = line.substring(cmd.getWord().length()).trim();
-        if (keyword.isEmpty()) {
+    public static String[] parseKeywords(String line, Command cmd) throws AtlasException {
+        String remainder = line.substring(cmd.getWord().length()).trim();
+        if (remainder.isEmpty()) {
             throw new AtlasException("What shall I seek, mortal? Use: find <keyword>");
         }
-        return keyword;
+        return remainder.split("\\s+");
     }
 
     /**

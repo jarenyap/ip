@@ -1,5 +1,6 @@
 package atlas.command;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -29,11 +30,13 @@ public class ParserTest {
     }
 
     @Test
-    void parsesFindKeywordAndRejectsBlankKeyword() throws AtlasException {
-        assertEquals("book", Parser.parseKeyword("find book", Command.FIND));
+    void parsesFindKeywordsAndRejectsBlankKeyword() throws AtlasException {
+        assertArrayEquals(new String[]{"book"}, Parser.parseKeywords("find book", Command.FIND));
+        assertArrayEquals(new String[]{"book", "paper"},
+                Parser.parseKeywords("find  book   paper", Command.FIND));
 
         AtlasException exception = assertThrows(AtlasException.class, () ->
-                Parser.parseKeyword("find ", Command.FIND));
+                Parser.parseKeywords("find ", Command.FIND));
         assertEquals("What shall I seek, mortal? Use: find <keyword>", exception.getMessage());
     }
 

@@ -23,6 +23,13 @@ Deadline `/by` values are dates since Level-8: input `yyyy-mm-dd`, output
 file stores the ISO date (e.g. `D | 0 | x | 2019-10-15`); old files with
 non-date `by` values are skipped as corrupted on load.
 
+## A-Varargs note
+
+Since A-Varargs, `find` takes any number of whitespace-separated keywords
+(e.g. `find book paper`). A task matches when its description contains ANY
+of the keywords (case-sensitive OR), in insertion order. Bare `find` still
+shows the missing-keyword message.
+
 ## Cases
 
 | Case | Aim | Inputs | Expected |
@@ -44,6 +51,7 @@ non-date `by` values are skipped as corrupted on load.
 | `delete-bad` | delete with non-number, zero, out-of-range, or no index | `delete abc`, `delete 0`, `delete 99`, `delete`, `bye` | Full pantheon message; bare-command prompt |
 | `delete-only` | deleting the last task empties the list cleanly | `todo only`, `delete 1`, `list`, `bye` | Removed shown; `Now you have 0 tasks in the list.`; `Your list is empty.` |
 | `find-case` | Level-9: find tasks by a case-sensitive description keyword | add two tasks containing `book`, add an unrelated task, `find book`, `find missing`, bare `find` | Matching tasks are listed in insertion order; no-match and missing-keyword messages are shown |
+| `find-multi-keyword` | A-Varargs: find accepts several whitespace-separated keywords; any keyword matches (OR) | `todo read book`, `deadline return book /by 2019-10-15`, `todo visit museum`, `find book paper`, `find missing`, `find museum`, bare `find`, `bye` | Both `book` rows listed in order for `book paper`; no-match message; `museum` row listed alone; missing-keyword message |
 | `state-recovery` | errors leave the list untouched; mark/delete after errors work | `todo keep`, `deadline due /by 2019-12-02`, `event meet /from 10am /to 11am`, `deadline broken`, `mark 99`, `delete 99`, `list`, `mark 2`, `delete 1`, `list`, `unmark 1`, `list`, `bye` | Errors do not add tasks; indexed snapshots prove keep removed, due stays marked through the delete, then unmarks |
 | `large-list` | dynamic sizing and storage correctness beyond 100 tasks | 101 `todo task N` commands, `list`, `mark 101`, `delete 1`, `list`, `bye` | Indexed lines for tasks 1/100/101; 101st markable; after delete: renumbered, 101st still marked, count 100 |
 | `level7-persistence` | Level-7: save on change, load on restart | run 1: add todo/deadline/event, `mark 2`, `list`, `bye`; run 2: `list`, `unmark 2`, `list`, `delete 1`, `list`, `bye` | Run 2 lists run 1's tasks loaded from disk with mark intact; unmark and delete persist and renumber |
