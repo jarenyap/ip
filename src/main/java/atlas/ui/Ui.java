@@ -2,10 +2,12 @@ package atlas.ui;
 
 import java.util.Scanner;
 
+import atlas.AtlasSession;
+
 /**
  * Deals with interactions with the user: reading commands and printing output.
  */
-public class Ui {
+public class Ui implements AtlasSession.Output {
 
     private static final String BANNER = "     _  _____ _        _    ____\n"
             + "    / \\|_   _| |      / \\  / ___|\n"
@@ -35,6 +37,7 @@ public class Ui {
      *
      * @param message message to display.
      */
+    @Override
     public void speak(String message) {
         String border = "─".repeat(message.length() + 2);
         System.out.println("╭" + border + "╮");
@@ -47,6 +50,7 @@ public class Ui {
      *
      * @param text text to print.
      */
+    @Override
     public void print(String text) {
         System.out.println(text);
     }

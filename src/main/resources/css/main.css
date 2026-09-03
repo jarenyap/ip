@@ -1,0 +1,94 @@
+/* Main window theme for Atlas: cream parchment base with a prussian blue
+   accent, matching the gotham-gold-light Ghostty theme. */
+@font-face {
+    font-family: 'Cinzel Decorative';
+    src: url('../fonts/CinzelDecorative-Regular.ttf');
+}
+
+@font-face {
+    font-family: 'Cinzel Decorative';
+    font-weight: bold;
+    src: url('../fonts/CinzelDecorative-Bold.ttf');
+}
+
+.root {
+    -fx-background-color: #f5efe1;
+}
+
+/* --- Header --- */
+.header-label {
+    -fx-background-color: #2e6496;
+    -fx-text-fill: #f5efe1;
+    -fx-font-family: 'Cinzel Decorative';
+    -fx-font-weight: bold;
+    -fx-font-size: 22px;
+    -fx-alignment: center;
+    -fx-border-color: transparent transparent #1f4a73 transparent;
+    -fx-border-width: 0 0 2px 0;
+}
+
+/* --- Background watermark --- */
+.watermark {
+    -fx-font-family: 'Cinzel Decorative';
+    -fx-font-size: 110px;
+    -fx-text-fill: rgba(0, 49, 83, 0.08);
+    -fx-alignment: center;
+}
+
+/* --- Chat canvas --- */
+.scroll-pane,
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar:vertical {
+    -fx-pref-width: 10px;
+}
+
+.scroll-bar:vertical .track {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar:vertical .thumb {
+    -fx-background-color: #cdc5b4;
+    -fx-background-radius: 5px;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button,
+.scroll-bar .corner {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+/* --- Input row --- */
+.text-field {
+    -fx-background-color: #fffdf8;
+    -fx-background-radius: 8px;
+    -fx-border-color: #d8d2c8;
+    -fx-border-radius: 8px;
+    -fx-border-width: 1px;
+    -fx-font-size: 18px;
+    -fx-prompt-text-fill: #8a8478;
+    -fx-padding: 6px 10px;
+    -fx-focus-color: #2e6496;
+    -fx-faint-focus-color: rgba(46, 100, 150, 0.2);
+}
+
+.button {
+    -fx-background-color: #2e6496;
+    -fx-background-radius: 8px;
+    -fx-text-fill: #f5efe1;
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+.button:hover {
+    -fx-background-color: #4286bf;
+}
+
+.button:pressed {
+    -fx-background-color: #1f4a73;
+}

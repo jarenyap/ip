@@ -1,0 +1,32 @@
+/* Chat bubbles: user messages are prussian blue, Atlas replies are white on
+   a warm parchment frame, matching the gotham-gold-light Ghostty theme.
+   The bubble chrome lives on the DialogBox StackPane; the Text child wraps
+   (a plain Text node never ellipsizes, so full messages always show). */
+.bubble-text {
+    -fx-font-size: 18px;
+}
+
+.label {
+    /* User message bubble (right side), tail at the top-right corner. */
+    -fx-background-color: #2e6496;
+    -fx-background-radius: 16 4 16 16;
+    -fx-padding: 8px 12px;
+}
+
+.label .bubble-text {
+    -fx-fill: #f5efe1;
+}
+
+.reply-label {
+    /* Atlas message bubble (left side), tail at the top-left corner. */
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 4 16 16 16;
+    -fx-border-color: #e0d9c8;
+    -fx-border-radius: 4 16 16 16;
+    -fx-border-width: 1px;
+    -fx-padding: 8px 12px;
+}
+
+.reply-label .bubble-text {
+    -fx-fill: #2a2622;
+}

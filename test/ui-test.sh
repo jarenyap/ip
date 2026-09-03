@@ -13,8 +13,12 @@ BIN=$(mktemp -d)
 WORK=$(mktemp -d)
 trap 'rm -rf "$BIN" "$WORK"' EXIT
 
+# GUI sources import javafx.*, so put the JavaFX jars from the Gradle cache
+# on the compile classpath. Run a Gradle build first if this find is empty.
+JAVAFX_CP=$(find "$HOME/.gradle/caches/modules-2/files-2.1/org.openjfx" -name '*.jar' 2>/dev/null | tr '\n' ':')
+
 if ! find "$REPO_ROOT/src/main/java" -name '*.java' -print0 \
-    | xargs -0 javac -Xlint:none -d "$BIN"; then
+    | xargs -0 javac -Xlint:none -cp "$JAVAFX_CP" -d "$BIN"; then
     echo "********** BUILD FAILURE **********"
     exit 1
 fi
