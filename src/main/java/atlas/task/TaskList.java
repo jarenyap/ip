@@ -16,6 +16,7 @@ public class TaskList {
      * @param tasks tasks to place in the list.
      */
     public TaskList(ArrayList<Task> tasks) {
+        assert tasks != null : "task list must not be null";
         this.tasks = tasks;
     }
 
@@ -49,6 +50,7 @@ public class TaskList {
      * @return task at the specified position.
      */
     public Task get(int index) {
+        assert index >= 0 && index < tasks.size() : "index out of range: " + index;
         return tasks.get(index);
     }
 
@@ -58,6 +60,7 @@ public class TaskList {
      * @param task task to add.
      */
     public void add(Task task) {
+        assert task != null : "task must not be null";
         tasks.add(task);
     }
 
@@ -68,6 +71,7 @@ public class TaskList {
      * @return the removed task.
      */
     public Task remove(int index) {
+        assert index >= 0 && index < tasks.size() : "index out of range: " + index;
         return tasks.remove(index);
     }
 
@@ -81,6 +85,7 @@ public class TaskList {
      * @return matching tasks, or an empty list when no task matches.
      */
     public ArrayList<Task> find(String... keywords) {
+        assert keywords.length > 0 : "at least one keyword is required";
         ArrayList<Task> matches = new ArrayList<>();
         for (Task task : tasks) {
             for (String keyword : keywords) {

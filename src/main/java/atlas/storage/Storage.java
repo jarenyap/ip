@@ -84,6 +84,7 @@ public class Storage {
      * @throws AtlasException if the file cannot be written
      */
     public void save(ArrayList<Task> tasks) throws AtlasException {
+        assert tasks != null : "tasks to save must not be null";
         StringBuilder content = new StringBuilder();
         for (Task task : tasks) {
             content.append(toFileLine(task)).append(System.lineSeparator());
@@ -130,6 +131,7 @@ public class Storage {
      * @throws AtlasException if the line is malformed or uses an unknown type.
      */
     private Task parseLine(String line) throws AtlasException {
+        assert !line.isBlank() : "load() skips blank lines before parsing";
         String[] parts = line.split("(?<!\\\\)\\|", -1);
         if (parts.length < 3) {
             throw new AtlasException("too few fields");
