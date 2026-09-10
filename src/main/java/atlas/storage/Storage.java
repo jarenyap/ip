@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import atlas.AtlasException;
 import atlas.task.Deadline;
@@ -84,15 +85,17 @@ public class Storage {
      * @throws AtlasException if the file cannot be written
      */
     public void save(ArrayList<Task> tasks) throws AtlasException {
-        StringBuilder content = new StringBuilder();
-        for (Task task : tasks) {
-            content.append(toFileLine(task)).append(System.lineSeparator());
+        String content = tasks.stream()
+                .map(this::toFileLine)
+                .collect(Collectors.joining(System.lineSeparator()));
+        if (!content.isEmpty()) {
+            content = content + System.lineSeparator();
         }
         try {
             if (filePath.getParent() != null) {
                 Files.createDirectories(filePath.getParent());
             }
-            Files.writeString(filePath, content.toString());
+            Files.writeString(filePath, content);
         } catch (IOException e) {
             throw new AtlasException("The scroll of tasks could not be saved: " + e.getMessage());
         }
