@@ -15,6 +15,13 @@ import atlas.task.Todo;
  */
 public class Parser {
 
+    /** Separator that introduces the deadline date in a deadline command. */
+    private static final String BY_MARKER = " /by ";
+    /** Separator that introduces the start of an event in an event command. */
+    private static final String FROM_MARKER = " /from ";
+    /** Separator that introduces the end of an event in an event command. */
+    private static final String TO_MARKER = " /to ";
+
     /**
      * Returns the command a line starts with, or null if the line is not a command.
      * A line matches a command when it is exactly the command word, or the
@@ -86,7 +93,7 @@ public class Parser {
                 return new Todo(desc);
             }
             case DEADLINE: {
-                int byPos = line.indexOf(" /by ");
+                int byPos = line.indexOf(BY_MARKER);
                 if (byPos == -1) {
                     throw new AtlasException("The Fates weave on schedule. Use: deadline <desc> /by <when>");
                 }
@@ -94,7 +101,8 @@ public class Parser {
                 if (desc.trim().isEmpty()) {
                     throw new AtlasException("Name your labour, mortal: deadline <desc> /by <when>");
                 }
-                String byText = line.substring(byPos + 5);
+                assert byPos > prefixLen : "byPos must point past the command prefix";
+                String byText = line.substring(byPos + BY_MARKER.length());
                 if (byText.trim().isEmpty()) {
                     throw new AtlasException("The Fates weave on schedule. Use: deadline <desc> /by <when>");
                 }
@@ -108,12 +116,12 @@ public class Parser {
                 return new Deadline(desc, by);
             }
             case EVENT: {
-                int fromPos = line.indexOf(" /from ");
+                int fromPos = line.indexOf(FROM_MARKER);
                 if (fromPos == -1) {
                     throw new AtlasException("Even Icarus launched from somewhere. "
                             + "Use: event <desc> /from <start> /to <end>");
                 }
-                int toPos = line.indexOf(" /to ", fromPos);
+                int toPos = line.indexOf(TO_MARKER, fromPos);
                 if (toPos == -1) {
                     throw new AtlasException("Icarus never planned a landing either. "
                             + "Use: event <desc> /from <start> /to <end>");
@@ -122,12 +130,14 @@ public class Parser {
                 if (desc.trim().isEmpty()) {
                     throw new AtlasException("Name your labour, mortal: event <desc> /from <start> /to <end>");
                 }
-                String from = line.substring(fromPos + 7, toPos);
+                assert fromPos > prefixLen : "fromPos must point past the command prefix";
+                assert toPos > fromPos : "/to must come after /from";
+                String from = line.substring(fromPos + FROM_MARKER.length(), toPos);
                 if (from.trim().isEmpty()) {
                     throw new AtlasException("Even Icarus launched from somewhere. "
                             + "Use: event <desc> /from <start> /to <end>");
                 }
-                String to = line.substring(toPos + 5);
+                String to = line.substring(toPos + TO_MARKER.length());
                 if (to.trim().isEmpty()) {
                     throw new AtlasException("Icarus never planned a landing either. "
                             + "Use: event <desc> /from <start> /to <end>");
