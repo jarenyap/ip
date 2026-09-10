@@ -2,7 +2,9 @@ package atlas;
 
 import java.util.Scanner;
 
+import atlas.client.ClientList;
 import atlas.command.Command;
+import atlas.storage.AtlasData;
 import atlas.storage.Storage;
 import atlas.task.TaskList;
 import atlas.ui.Ui;
@@ -27,14 +29,18 @@ public class Atlas {
 
         Storage storage = new Storage(AtlasSession.DEFAULT_DATA_FILE);
         TaskList tasks;
+        ClientList clients;
         try {
-            tasks = new TaskList(storage.load());
+            AtlasData data = storage.load();
+            tasks = new TaskList(data.getTasks());
+            clients = new ClientList(data.getClients());
         } catch (AtlasException e) {
             ui.speak(e.getMessage());
             tasks = new TaskList();
+            clients = new ClientList();
         }
 
-        AtlasSession session = new AtlasSession(storage, tasks, ui);
+        AtlasSession session = new AtlasSession(storage, tasks, clients, ui);
         String line = ui.readLine();
 
         while (!line.equals(Command.BYE.getWord())) {

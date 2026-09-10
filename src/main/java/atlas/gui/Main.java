@@ -4,6 +4,8 @@ import java.io.IOException;
 
 import atlas.AtlasException;
 import atlas.AtlasSession;
+import atlas.client.ClientList;
+import atlas.storage.AtlasData;
 import atlas.storage.Storage;
 import atlas.task.TaskList;
 import javafx.application.Application;
@@ -33,16 +35,20 @@ public class Main extends Application {
 
             Storage storage = new Storage(AtlasSession.DEFAULT_DATA_FILE);
             TaskList tasks;
+            ClientList clients;
             String warning = null;
             try {
-                tasks = new TaskList(storage.load());
+                AtlasData data = storage.load();
+                tasks = new TaskList(data.getTasks());
+                clients = new ClientList(data.getClients());
             } catch (AtlasException e) {
                 warning = e.getMessage();
                 tasks = new TaskList();
+                clients = new ClientList();
             }
 
             ReplyCollector collector = new ReplyCollector();
-            AtlasSession session = new AtlasSession(storage, tasks, collector);
+            AtlasSession session = new AtlasSession(storage, tasks, clients, collector);
             fxmlLoader.<MainWindow>getController().setUp(session, collector, stage, warning);
 
             stage.setTitle("Atlas");

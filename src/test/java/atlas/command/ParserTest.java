@@ -5,19 +5,24 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.LocalDate;
 
 import org.junit.jupiter.api.Test;
 
 import atlas.AtlasException;
+import atlas.client.Client;
 import atlas.task.Deadline;
 import atlas.task.Event;
 import atlas.task.Task;
 import atlas.task.Todo;
 
-/** Tests command recognition and task parsing. */
+/** Tests command recognition, task parsing and client parsing. */
 public class ParserTest {
+
+    /** Syntax of the client add command, used in its error messages. */
+    private static final String CLIENT_ADD_SYNTAX = "client add <name> [/phone <number>] [/email <address>]";
 
     @Test
     void parsesKnownCommandsAndRejectsUnknownPrefixes() {
@@ -25,6 +30,7 @@ public class ParserTest {
         assertEquals(Command.DEADLINE, Parser.parseCommand("deadline submit /by 2026-09-01"));
         assertEquals(Command.EVENT, Parser.parseCommand("event meeting /from 2pm /to 3pm"));
         assertEquals(Command.FIND, Parser.parseCommand("find book"));
+        assertEquals(Command.CLIENT, Parser.parseCommand("client add Bob"));
         assertNull(Parser.parseCommand("today"));
         assertNull(Parser.parseCommand("todoist read"));
     }
@@ -45,6 +51,8 @@ public class ParserTest {
         assertEquals(3, Parser.parseIndex("mark 3", Command.MARK));
         assertEquals(0, Parser.parseIndex("delete 0", Command.DELETE));
         assertEquals(-1, Parser.parseIndex("unmark many", Command.UNMARK));
+        assertEquals(2, Parser.parseIndex("mark 2 ", Command.MARK));
+        assertEquals(-1, Parser.parseIndex("mark", Command.MARK));
     }
 
     @Test
@@ -96,5 +104,92 @@ public class ParserTest {
                 Parser.parseTask("todo  ", Command.TODO));
 
         assertEquals("Name your labour, mortal: todo <desc>", exception.getMessage());
+    }
+
+    @Test
+    void parsesClientSubcommandsAndRejectsUnknownOnes() throws AtlasException {
+        assertEquals(ClientCommand.ADD, Parser.parseClientSubcommand("client add Bob"));
+        assertEquals(ClientCommand.LIST, Parser.parseClientSubcommand("client list"));
+        assertEquals(ClientCommand.FIND, Parser.parseClientSubcommand("client find Bob"));
+        assertEquals(ClientCommand.DELETE, Parser.parseClientSubcommand("client delete 1"));
+
+        AtlasException bare = assertThrows(AtlasException.class, () ->
+                Parser.parseClientSubcommand("client"));
+        AtlasException unknown = assertThrows(AtlasException.class, () ->
+                Parser.parseClientSubcommand("client foo"));
+
+        assertTrue(bare.getMessage().startsWith("The Oracle is silent on that client command."));
+        assertEquals(bare.getMessage(), unknown.getMessage());
+    }
+
+    @Test
+    void parsesClientAddWithOptionalFieldsInEitherOrder() throws AtlasException {
+        Client nameOnly = Parser.parseClient("client add Bob");
+
+        assertEquals("Bob", nameOnly.getName());
+        assertEquals("", nameOnly.getPhone());
+        assertEquals("", nameOnly.getEmail());
+
+        Client withPhone = Parser.parseClient("client add Mary Jane /phone 91234567");
+
+        assertEquals("Mary Jane", withPhone.getName());
+        assertEquals("91234567", withPhone.getPhone());
+        assertEquals("", withPhone.getEmail());
+
+        Client reversed = Parser.parseClient("client add Chen Wei /email wei@x.com /phone 8123 4567");
+
+        assertEquals("Chen Wei", reversed.getName());
+        assertEquals("8123 4567", reversed.getPhone());
+        assertEquals("wei@x.com", reversed.getEmail());
+    }
+
+    @Test
+    void rejectsClientAddWithoutNameOrWithEmptyMarkerValues() {
+        AtlasException noName = assertThrows(AtlasException.class, () ->
+                Parser.parseClient("client add"));
+        AtlasException markerWithoutName = assertThrows(AtlasException.class, () ->
+                Parser.parseClient("client add /phone 91234567"));
+        AtlasException noPhone = assertThrows(AtlasException.class, () ->
+                Parser.parseClient("client add Bob /phone"));
+        AtlasException noEmail = assertThrows(AtlasException.class, () ->
+                Parser.parseClient("client add Bob /email"));
+
+        assertEquals("Name your client, mortal: " + CLIENT_ADD_SYNTAX, noName.getMessage());
+        assertEquals(noName.getMessage(), markerWithoutName.getMessage());
+        assertEquals("A number must follow /phone. Use: " + CLIENT_ADD_SYNTAX, noPhone.getMessage());
+        assertEquals("An address must follow /email. Use: " + CLIENT_ADD_SYNTAX, noEmail.getMessage());
+    }
+
+    @Test
+    void rejectsAdjacentMarkersThatShareOneSpace() throws AtlasException {
+        AtlasException noPhone = assertThrows(AtlasException.class, () ->
+                Parser.parseClient("client add B /phone /email x@y.com"));
+        AtlasException noEmail = assertThrows(AtlasException.class, () ->
+                Parser.parseClient("client add A /email /phone 2"));
+
+        assertEquals("A number must follow /phone. Use: " + CLIENT_ADD_SYNTAX, noPhone.getMessage());
+        assertEquals("An address must follow /email. Use: " + CLIENT_ADD_SYNTAX, noEmail.getMessage());
+
+        Client separated = Parser.parseClient("client add B /phone 1 /email x@y.com");
+
+        assertEquals("B", separated.getName());
+        assertEquals("1", separated.getPhone());
+        assertEquals("x@y.com", separated.getEmail());
+    }
+
+    @Test
+    void parsesClientFindKeywordsAndClientDeleteArguments() throws AtlasException {
+        assertArrayEquals(new String[]{"Bob"}, Parser.parseClientKeywords("client find Bob"));
+        assertArrayEquals(new String[]{"Bob", "x.com"},
+                Parser.parseClientKeywords("client find Bob  x.com"));
+
+        AtlasException blank = assertThrows(AtlasException.class, () ->
+                Parser.parseClientKeywords("client find"));
+        assertEquals("Whom shall I seek, mortal? Use: client find <keyword>", blank.getMessage());
+
+        assertEquals("2", Parser.parseClientDeleteArgument("client delete 2 "));
+        assertEquals("", Parser.parseClientDeleteArgument("client delete"));
+        assertEquals(3, Parser.parseNumber(" 3 "));
+        assertEquals(-1, Parser.parseNumber("abc"));
     }
 }
