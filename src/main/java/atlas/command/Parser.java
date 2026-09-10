@@ -101,6 +101,7 @@ public class Parser {
                 if (desc.trim().isEmpty()) {
                     throw new AtlasException("Name your labour, mortal: deadline <desc> /by <when>");
                 }
+                assert byPos > prefixLen : "byPos must point past the command prefix";
                 String byText = line.substring(byPos + BY_MARKER.length());
                 if (byText.trim().isEmpty()) {
                     throw new AtlasException("The Fates weave on schedule. Use: deadline <desc> /by <when>");
@@ -129,6 +130,8 @@ public class Parser {
                 if (desc.trim().isEmpty()) {
                     throw new AtlasException("Name your labour, mortal: event <desc> /from <start> /to <end>");
                 }
+                assert fromPos > prefixLen : "fromPos must point past the command prefix";
+                assert toPos > fromPos : "/to must come after /from";
                 String from = line.substring(fromPos + FROM_MARKER.length(), toPos);
                 if (from.trim().isEmpty()) {
                     throw new AtlasException("Even Icarus launched from somewhere. "

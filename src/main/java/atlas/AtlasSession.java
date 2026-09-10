@@ -83,6 +83,8 @@ public class AtlasSession {
                     tasks.get(index - 1).markAsDone();
                     storage.save(tasks.all());
                     output.speak("Nice! I've marked this task as done:");
+                    assert index >= 1 && index <= tasks.size()
+                            : "the marked task must still be in the list";
                     output.speak("  " + tasks.get(index - 1));
                     break;
                 }
@@ -92,12 +94,15 @@ public class AtlasSession {
                     tasks.get(index - 1).markAsNotDone();
                     storage.save(tasks.all());
                     output.speak("OK, I've marked this task as not done yet:");
+                    assert index >= 1 && index <= tasks.size()
+                            : "the unmarked task must still be in the list";
                     output.speak("  " + tasks.get(index - 1));
                     break;
                 }
                 case DELETE: {
                     int index = parseTaskNumber(line, cmd, "Which labour shall I release? Use: delete <number>");
                     Task removed = tasks.remove(index - 1);
+                    assert removed != null : "a valid task number always yields a task";
                     storage.save(tasks.all());
                     output.speak("Got it. I've removed this task:");
                     output.speak("  " + removed);
