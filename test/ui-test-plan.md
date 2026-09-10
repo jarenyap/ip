@@ -7,8 +7,9 @@ Each case has these files under `test/cases/`:
 - `<name>.in` — commands fed to Atlas (must end with `bye`)
 - `<name>.expected` — lines that must appear in the output (substring match,
   mirroring the course grading scripts; tolerant of bubble formatting).
-  Indexed list lines (e.g. `1.[T][ ] task`) only occur in `list` output, so
-  they prove stored state rather than acknowledgement text.
+  Indexed list lines (e.g. `1.[T][ ] task`, `1.[C] Bob`) only occur in listing
+  output (`list`, `find`, `client list`, `client find`), so they prove stored
+  state rather than acknowledgement text.
 - `<name>.in2` (optional) — a second session run in the same working
   directory after the first, used to test persistence across restarts.
   Expected substrings cover both runs' combined output.
@@ -30,6 +31,41 @@ Since A-Varargs, `find` takes any number of whitespace-separated keywords
 of the keywords (case-sensitive OR), in insertion order. Bare `find` still
 shows the missing-keyword message.
 
+## D-Clients note
+
+The `client` command manages client records alongside tasks:
+
+- `client add <name> [/phone <number>] [/email <address>]` — name required,
+  the two markers optional and accepted in either order
+- `client list` — every client, numbered from 1
+- `client find <keyword> [<keyword> ...]` — a client matches when its NAME,
+  phone or email contains the keyword (case-sensitive OR), in insertion order
+- `client delete <number>` — removes one client
+
+Clients and tasks are numbered independently, so deleting a client never
+renumbers tasks and vice versa. `list` shows tasks only and `client list`
+shows clients only.
+
+Both entity types live in the same data file, distinguished by the first
+field: `T`, `D` and `E` are tasks, `C` is a client. A client record is written
+as `C | name | phone | email`, with empty phone and email fields when they are
+not known; on load, 2 to 4 fields are accepted so a hand-written file without
+the optional fields still loads. Records are written tasks first, then
+clients. Delimiters inside any field are escaped as `\|` and `\\`, exactly as
+for tasks. Unknown record types and malformed client records are skipped as
+corrupted lines, keeping the rest of the file.
+
+Unit tests cover the client list operations, the display form, the matching
+rule, and the storage round trip, including hand-written records that hold
+only a name, or a name and a phone.
+
+Intentional behaviour change introduced with this increment: the unknown-word
+reply now lists `client` among the commands. Two cases produce that reply.
+`unknown-command.expected` asserts the full line, so it was updated in the
+same commit. `uppercase-bye.expected` asserts only the opening words of the
+message, so it needed no change; it now also asserts the `list` reply that
+follows, which is what proves the session continues after an unknown word.
+
 ## Cases
 
 | Case | Aim | Inputs | Expected |
@@ -38,8 +74,8 @@ shows the missing-keyword message.
 | `empty-list` | `list` with no tasks | `list`, `bye` | `Your list is empty.` |
 | `mark-unmark-all-types` | mark AND unmark on every task type | `todo a`, `deadline b /by 2019-12-02`, `event c /from 1pm /to 2pm`, `mark 1`, `mark 2`, `mark 3`, `list`, `unmark 1`, `unmark 2`, `unmark 3`, `list`, `bye` | All three `[X]` after mark; all three `[ ]` restored after unmark |
 | `special-chars` | punctuation and multi-word fields parse | `deadline fix bug :-) /by 2019-10-15`, `event team dinner /from 7pm at marina /to 9pm at home`, `list`, `bye` | Indexed list lines with `(by: Oct 15 2019)` and `(from: 7pm at marina to: 9pm at home)` |
-| `unknown-command` | bare text is rejected, not silently added | `plain task`, `bye` | Full Oracle message with command list |
-| `uppercase-bye` | only exact `bye` exits | `BYE`, `list`, `bye` | `BYE` rejected as unknown; session continues |
+| `unknown-command` | bare text is rejected, not silently added | `plain task`, `bye` | Full Oracle message with command list, including `client` |
+| `uppercase-bye` | only exact `bye` exits | `BYE`, `list`, `bye` | `BYE` rejected as unknown; the `list` that follows still runs (`Your list is empty.`) |
 | `empty-todo` | empty todo description rejected | `todo`, `todo `, `bye` | `Name your labour, mortal: todo <desc>` |
 | `missing-by` | deadline without ` /by ` rejected | `deadline do work`, `deadline`, `bye` | Full Fates message with syntax hint |
 | `missing-from` | event without ` /from ` rejected | `event party /to 10pm`, `event`, `bye` | Full Icarus-from message with syntax hint |
@@ -55,7 +91,20 @@ shows the missing-keyword message.
 | `state-recovery` | errors leave the list untouched; mark/delete after errors work | `todo keep`, `deadline due /by 2019-12-02`, `event meet /from 10am /to 11am`, `deadline broken`, `mark 99`, `delete 99`, `list`, `mark 2`, `delete 1`, `list`, `unmark 1`, `list`, `bye` | Errors do not add tasks; indexed snapshots prove keep removed, due stays marked through the delete, then unmarks |
 | `large-list` | dynamic sizing and storage correctness beyond 100 tasks | 101 `todo task N` commands, `list`, `mark 101`, `delete 1`, `list`, `bye` | Indexed lines for tasks 1/100/101; 101st markable; after delete: renumbered, 101st still marked, count 100 |
 | `level7-persistence` | Level-7: save on change, load on restart | run 1: add todo/deadline/event, `mark 2`, `list`, `bye`; run 2: `list`, `unmark 2`, `list`, `delete 1`, `list`, `bye` | Run 2 lists run 1's tasks loaded from disk with mark intact; unmark and delete persist and renumber |
-| `level8-dates` | Level-8: deadline dates parse (yyyy-mm-dd) and print formatted (MMM dd yyyy); non-dates rejected | `deadline submit /by 2019-10-15`, `deadline newyear /by 2020-01-05`, `list`, `deadline bad /by 15/10/2019`, `list`, `bye` | Formatted lines `(by: Oct 15 2019)` and `(by: Jan 05 2020)`; full rejection message for `15/10/2019`; list unchanged after rejection |
+| `level8-dates` | Level-8: deadline dates parse (yyyy-mm-dd) and print formatted (MMM dd yyyy); non-dates rejected | `deadline submit /by 2019-10-15`, `deadline newyear /by 2020-01-05`, `list`, `deadline bad /by 15/10/2019`, `list`, `bye` | Formatted lines `(by: Oct 15 2019)` and `(by: Jan 05 2020)`; full rejection message for `15/10/2019`; the two valid deadlines still listed |
+| `client-add-list` | D-Clients: add clients with and without optional fields, then list them | `client add Bob`, `client add Mary Jane /phone 91234567`, `client add Chen Wei /email wei@example.com`, `client add Dara /phone 8123 4567 /email dara@example.com`, `client list`, `bye` | Echo of each added client; counts in singular and plural; indexed client lines showing phone and email only when known, and both together for a client that has both |
+| `client-errors` | D-Clients: every malformed client command is rejected and adds nothing | `client`, `client foo`, `client add`, `client add /phone 91234567`, `client add Bob /phone`, `client add Bob /email`, `client add B /phone /email x@y.com` (two markers sharing one space), `client add A /email /phone 2`, `client delete`, `client delete abc`, `client delete 0`, `client delete 99`, `client find`, `client list`, `bye` | Full usage, missing-name, empty-value, missing-number, no-such-client and missing-keyword messages; client list still empty |
+| `client-delete-find` | D-Clients: find matches name/phone/email; delete renumbers clients and leaves tasks untouched | `todo buy milk`, three `client add` commands, `client find x.com`, `client delete 2`, `client list`, `list`, `client delete abc`, `client find zzz`, `bye` | Matching client listed; removed client shown; clients renumbered; task still `1.[T][ ] buy milk`; invalid delete rejected; no-match message shown |
+| `client-persistence` | D-Clients: clients and tasks share one file and survive a restart, including escaped delimiters | run 1: two `client add` commands (one with `|` and `\` in the fields), `todo buy milk`, `bye`; run 2: `client list`, `list`, `client delete 1`, `client list`, `bye` | Run 2 loads both entity types from disk; escaped characters round-trip; deleting a client keeps the task and renumbers the rest |
+
+## Harness limitation
+
+The harness only checks that each expected line is present; it cannot check
+that an unwanted line is absent. A case therefore cannot, by itself, prove
+that a rejected command left the stored state unchanged. Where that proof
+matters, the case has to add a follow-up command whose reply differs when the
+state is wrong (for example deleting the row that should not exist and
+expecting the not-found message).
 
 ## Maintenance rule
 

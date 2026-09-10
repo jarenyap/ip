@@ -16,7 +16,13 @@ Atlas is a personal task-management chatbot with a Greek-oracle personality. It 
 | `unmark` | `unmark <number>` | Marks a task as not done |
 | `delete` | `delete <number>` | Removes a task |
 | `find` | `find <keyword>` | Shows tasks whose descriptions contain the keyword |
+| `client add` | `client add <name> [/phone <number>] [/email <address>]` | Adds a client |
+| `client list` | `client list` | Shows all clients |
+| `client find` | `client find <keyword>` | Shows clients whose name, phone or email contains the keyword |
+| `client delete` | `client delete <number>` | Removes a client |
 | `bye` | `bye` | Exits Atlas |
+
+Tasks and clients are numbered separately, so deleting a client never renumbers your tasks.
 
 Example session:
 
@@ -44,7 +50,7 @@ Prerequisites: JDK 25, update IntelliJ to the most recent version.
     / \|_   _| |      / \  / ___|
    / _ \ | | | |     / _ \ \___ \
   / ___ \| | | |___ / ___ \ ___) |
- /_/   \_\_| |_____/_/   \_\_/____/
+ /_/   \_\_| |_____/_/   \_\____/
 
 ╭────────────────────────────────────────────╮
 │ Hello! I'm Atlas, your personal assistant. │
@@ -86,4 +92,4 @@ Run the UI regression harness from the project root:
 ./test/ui-test.sh
 ```
 
-It runs 20 scripted sessions against a clean build and verifies the expected output for every command and error path.
+It runs 26 scripted sessions against a clean build and verifies the expected output for every command and error path.

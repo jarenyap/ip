@@ -9,53 +9,58 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import atlas.AtlasException;
+import atlas.client.Client;
 import atlas.task.Deadline;
 import atlas.task.Event;
 import atlas.task.Task;
 import atlas.task.Todo;
 
 /**
- * Loads and saves the task list from and to a text file on disk.
+ * Loads and saves the tasks and clients from and to a text file on disk.
  *
- * <p>File format: one task per line, fields separated by '|':
+ * <p>File format: one record per line, fields separated by '|':
  * <pre>
  *   Todo:     T | 1 | description
  *   Deadline: D | 1 | description | by
  *   Event:    E | 1 | description | from | to
+ *   Client:   C | name | phone | email
  * </pre>
- * The second field is 1 if the task is done and 0 otherwise. Literal '|' and
+ * The second task field is 1 if the task is done and 0 otherwise. A client's
+ * phone and email are left empty when they are not known. Literal '|' and
  * '\' characters inside stored text are escaped as '\|' and '\\', so any user
  * input round-trips through the file unchanged.
  */
 public class Storage {
 
-    /** Location of the file used to persist Atlas tasks. */
+    /** Location of the file used to persist Atlas tasks and clients. */
     private final Path filePath;
 
     /**
      * Creates a storage object that uses the specified file.
      *
-     * @param filePath path to the task data file.
+     * @param filePath path to the data file.
      */
     public Storage(String filePath) {
         this.filePath = Paths.get(filePath);
     }
 
     /**
-     * Loads tasks from the data file.
-     * Returns an empty list when the file does not exist yet (first run).
+     * Loads tasks and clients from the data file.
+     * Returns both lists empty when the file does not exist yet (first run).
      * Lines that cannot be parsed are skipped with a warning, so one corrupted
-     * line does not destroy the rest of the list.
+     * line does not destroy the rest of the data.
      *
-     * @return tasks successfully loaded from the file.
-     * @throws AtlasException if the file exists but cannot be read
+     * @return the tasks and clients successfully loaded from the file.
+     * @throws AtlasException if the file exists but cannot be read.
      */
-    public ArrayList<Task> load() throws AtlasException {
+    public AtlasData load() throws AtlasException {
         ArrayList<Task> tasks = new ArrayList<>();
+        ArrayList<Client> clients = new ArrayList<>();
         if (!Files.exists(filePath)) {
-            return tasks;
+            return new AtlasData(tasks, clients);
         }
         List<String> lines;
         try {
@@ -69,25 +74,27 @@ public class Storage {
                 continue;
             }
             try {
-                tasks.add(parseLine(line));
+                addRecord(line, tasks, clients);
             } catch (AtlasException e) {
                 System.out.println("Atlas skips a corrupted line " + (i + 1) + ": " + e.getMessage());
             }
         }
-        return tasks;
+        return new AtlasData(tasks, clients);
     }
 
     /**
-     * Saves every task to the data file, creating the data folder first if it
-     * does not exist.
+     * Saves every task and client to the data file, creating the data folder
+     * first if it does not exist. Tasks are written before clients.
      *
      * @param tasks tasks to save.
-     * @throws AtlasException if the file cannot be written
+     * @param clients clients to save.
+     * @throws AtlasException if the file cannot be written.
      */
-    public void save(ArrayList<Task> tasks) throws AtlasException {
+    public void save(ArrayList<Task> tasks, ArrayList<Client> clients) throws AtlasException {
         assert tasks != null : "tasks to save must not be null";
-        String content = tasks.stream()
-                .map(this::toFileLine)
+        assert clients != null : "clients to save must not be null";
+        String content = Stream.concat(tasks.stream().map(this::toFileLine),
+                        clients.stream().map(this::toClientLine))
                 .collect(Collectors.joining(System.lineSeparator()));
         if (!content.isEmpty()) {
             content = content + System.lineSeparator();
@@ -103,43 +110,49 @@ public class Storage {
     }
 
     /**
-     * Converts a task into its escaped single-line storage representation.
+     * Adds one parsed record to the list it belongs to.
      *
-     * @param task task to serialize.
-     * @return storage line for the task.
+     * @param line storage line to parse.
+     * @param tasks list that receives a task record.
+     * @param clients list that receives a client record.
+     * @throws AtlasException if the line is malformed or uses an unknown type.
      */
-    private String toFileLine(Task task) {
-        String done = task.isDone() ? "1" : "0";
-        String description = escape(task.getDescription());
-        if (task instanceof Todo) {
-            return "T | " + done + " | " + description;
+    private void addRecord(String line, ArrayList<Task> tasks, ArrayList<Client> clients) throws AtlasException {
+        assert !line.isBlank() : "load() skips blank lines before parsing";
+        String[] parts = splitFields(line);
+        if (parts.length == 0) {
+            throw new AtlasException("record has no fields");
         }
-        if (task instanceof Deadline) {
-            Deadline deadline = (Deadline) task;
-            return "D | " + done + " | " + description + " | " + deadline.getBy().toString();
+        String type = parts[0].trim();
+        if (type.equals("C")) {
+            clients.add(parseClientLine(parts));
+        } else {
+            tasks.add(parseTaskLine(parts, type));
         }
-        if (task instanceof Event) {
-            Event event = (Event) task;
-            return "E | " + done + " | " + description + " | " + escape(event.getFrom())
-                    + " | " + escape(event.getTo());
-        }
-        throw new AssertionError("Unknown task type: " + task);
+    }
+
+    /**
+     * Splits a storage line into its fields, keeping empty fields.
+     *
+     * @param line storage line to split.
+     * @return the line's fields.
+     */
+    private String[] splitFields(String line) {
+        return line.split("(?<!\\\\)\\|", -1);
     }
 
     /**
      * Parses one storage line into a task.
      *
-     * @param line storage line to parse.
+     * @param parts fields of the storage line.
+     * @param type record type read from the first field.
      * @return task represented by the line.
      * @throws AtlasException if the line is malformed or uses an unknown type.
      */
-    private Task parseLine(String line) throws AtlasException {
-        assert !line.isBlank() : "load() skips blank lines before parsing";
-        String[] parts = line.split("(?<!\\\\)\\|", -1);
+    private Task parseTaskLine(String[] parts, String type) throws AtlasException {
         if (parts.length < 3) {
             throw new AtlasException("too few fields");
         }
-        String type = parts[0].trim();
         String doneField = parts[1].trim();
         if (!doneField.equals("0") && !doneField.equals("1")) {
             throw new AtlasException("done flag is not 0 or 1");
@@ -181,12 +194,72 @@ public class Storage {
                 }
                 return event;
             default:
-                throw new AtlasException("unknown task type '" + type + "'");
+                throw new AtlasException("unknown record type '" + type + "'");
         }
     }
 
     /**
-     * Escapes delimiters and escape characters before writing task text.
+     * Parses one storage line into a client. The name is required; the phone
+     * and email fields may be omitted or left empty.
+     *
+     * @param parts fields of the storage line.
+     * @return client represented by the line.
+     * @throws AtlasException if the line has no name or too many fields.
+     */
+    private Client parseClientLine(String[] parts) throws AtlasException {
+        if (parts.length < 2) {
+            throw new AtlasException("client needs a name");
+        }
+        if (parts.length > 4) {
+            throw new AtlasException("client has extra fields");
+        }
+        String name = unescape(parts[1].trim());
+        if (name.isEmpty()) {
+            throw new AtlasException("client name is empty");
+        }
+        String phone = parts.length >= 3 ? unescape(parts[2].trim()) : "";
+        String email = parts.length == 4 ? unescape(parts[3].trim()) : "";
+        return new Client(name, phone, email);
+    }
+
+    /**
+     * Converts a task into its escaped single-line storage representation.
+     *
+     * @param task task to serialize.
+     * @return storage line for the task.
+     */
+    private String toFileLine(Task task) {
+        String done = task.isDone() ? "1" : "0";
+        String description = escape(task.getDescription());
+        if (task instanceof Todo) {
+            return "T | " + done + " | " + description;
+        }
+        if (task instanceof Deadline) {
+            Deadline deadline = (Deadline) task;
+            return "D | " + done + " | " + description + " | " + deadline.getBy().toString();
+        }
+        if (task instanceof Event) {
+            Event event = (Event) task;
+            return "E | " + done + " | " + description + " | " + escape(event.getFrom())
+                    + " | " + escape(event.getTo());
+        }
+        throw new AssertionError("Unknown task type: " + task);
+    }
+
+    /**
+     * Converts a client into its escaped single-line storage representation.
+     * Both optional fields are always written, so the field count is stable.
+     *
+     * @param client client to serialize.
+     * @return storage line for the client.
+     */
+    private String toClientLine(Client client) {
+        return "C | " + escape(client.getName()) + " | " + escape(client.getPhone())
+                + " | " + escape(client.getEmail());
+    }
+
+    /**
+     * Escapes delimiters and escape characters before writing stored text.
      *
      * @param text text to escape.
      * @return escaped text.
@@ -196,7 +269,7 @@ public class Storage {
     }
 
     /**
-     * Restores delimiters and escape characters after reading task text.
+     * Restores delimiters and escape characters after reading stored text.
      *
      * @param text escaped text to restore.
      * @return unescaped text.

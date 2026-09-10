@@ -21,7 +21,9 @@ public enum Command {
     /** Adds a deadline task. */
     DEADLINE("deadline"),
     /** Adds an event task. */
-    EVENT("event");
+    EVENT("event"),
+    /** Manages clients. */
+    CLIENT("client");
 
     /** The text that invokes this command. */
     private final String word;
