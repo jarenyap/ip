@@ -78,52 +78,37 @@ public class AtlasSession {
                         }
                     }
                     break;
-                case MARK:
-                    if (line.length() == cmd.getWord().length()) {
-                        throw new AtlasException("Which labour is complete? Use: mark <number>");
-                    }
-                    int markIndex = Parser.parseIndex(line, cmd);
-                    if (markIndex < 1 || markIndex > tasks.size()) {
-                        throw new AtlasException("No such task in the pantheon. Use: mark <number>");
-                    }
-                    tasks.get(markIndex - 1).markAsDone();
+                case MARK: {
+                    int index = parseTaskNumber(line, cmd, "Which labour is complete? Use: mark <number>");
+                    tasks.get(index - 1).markAsDone();
                     storage.save(tasks.all());
                     output.speak("Nice! I've marked this task as done:");
-                    assert markIndex >= 1 && markIndex <= tasks.size()
+                    assert index >= 1 && index <= tasks.size()
                             : "the marked task must still be in the list";
-                    output.speak("  " + tasks.get(markIndex - 1));
+                    output.speak("  " + tasks.get(index - 1));
                     break;
-                case UNMARK:
-                    if (line.length() == cmd.getWord().length()) {
-                        throw new AtlasException("Which labour is not complete? Use: unmark <number>");
-                    }
-                    int unmarkIndex = Parser.parseIndex(line, cmd);
-                    if (unmarkIndex < 1 || unmarkIndex > tasks.size()) {
-                        throw new AtlasException("No such task in the pantheon. Use: unmark <number>");
-                    }
-                    tasks.get(unmarkIndex - 1).markAsNotDone();
+                }
+                case UNMARK: {
+                    int index = parseTaskNumber(line, cmd,
+                            "Which labour is not complete? Use: unmark <number>");
+                    tasks.get(index - 1).markAsNotDone();
                     storage.save(tasks.all());
                     output.speak("OK, I've marked this task as not done yet:");
-                    assert unmarkIndex >= 1 && unmarkIndex <= tasks.size()
+                    assert index >= 1 && index <= tasks.size()
                             : "the unmarked task must still be in the list";
-                    output.speak("  " + tasks.get(unmarkIndex - 1));
+                    output.speak("  " + tasks.get(index - 1));
                     break;
-                case DELETE:
-                    if (line.length() == cmd.getWord().length()) {
-                        throw new AtlasException("Which labour shall I release? Use: delete <number>");
-                    }
-                    int deleteIndex = Parser.parseIndex(line, cmd);
-                    if (deleteIndex < 1 || deleteIndex > tasks.size()) {
-                        throw new AtlasException("No such task in the pantheon. Use: delete <number>");
-                    }
-                    Task removed = tasks.remove(deleteIndex - 1);
+                }
+                case DELETE: {
+                    int index = parseTaskNumber(line, cmd, "Which labour shall I release? Use: delete <number>");
+                    Task removed = tasks.remove(index - 1);
                     assert removed != null : "a valid task number always yields a task";
                     storage.save(tasks.all());
                     output.speak("Got it. I've removed this task:");
                     output.speak("  " + removed);
-                    output.speak("Now you have " + tasks.size() + " task"
-                            + (tasks.size() == 1 ? "" : "s") + " in the list.");
+                    speakTaskCount();
                     break;
+                }
                 case FIND:
                     String[] keywords = Parser.parseKeywords(line, cmd);
                     ArrayList<Task> matches = tasks.find(keywords);
@@ -138,15 +123,15 @@ public class AtlasSession {
                     break;
                 case TODO:
                 case DEADLINE:
-                case EVENT:
+                case EVENT: {
                     Task t = Parser.parseTask(line, cmd);
                     tasks.add(t);
                     storage.save(tasks.all());
                     output.speak("Got it. I've added this task:");
                     output.speak("  " + t);
-                    output.speak("Now you have " + tasks.size() + " task"
-                            + (tasks.size() == 1 ? "" : "s") + " in the list.");
+                    speakTaskCount();
                     break;
+                }
                 case BYE:
                     // Unreachable: callers exit before dispatching "bye".
                     break;
@@ -156,5 +141,36 @@ public class AtlasSession {
         } catch (AtlasException e) {
             output.speak(e.getMessage());
         }
+    }
+
+    /**
+     * Returns the task number that follows a command, after checking that the
+     * number was supplied and that it refers to an existing task.
+     *
+     * @param line the full command line typed by the user.
+     * @param cmd the command whose task number is being parsed.
+     * @param missingHint message to report when no number was supplied.
+     * @return the validated 1-based task number.
+     * @throws AtlasException if the number is missing, is not a number, or
+     *     falls outside the current task list.
+     */
+    private int parseTaskNumber(String line, Command cmd, String missingHint) throws AtlasException {
+        if (line.length() == cmd.getWord().length()) {
+            throw new AtlasException(missingHint);
+        }
+        int index = Parser.parseIndex(line, cmd);
+        if (index < 1 || index > tasks.size()) {
+            throw new AtlasException("No such task in the pantheon. Use: " + cmd.getWord() + " <number>");
+        }
+        return index;
+    }
+
+    /**
+     * Reports how many tasks the list holds, with the sentence Atlas uses
+     * after a task is added or deleted.
+     */
+    private void speakTaskCount() {
+        output.speak("Now you have " + tasks.size() + " task"
+                + (tasks.size() == 1 ? "" : "s") + " in the list.");
     }
 }
