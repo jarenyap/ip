@@ -1,5 +1,7 @@
 # Atlas
 
+[![Java CI](https://github.com/jarenyap/ip/actions/workflows/gradle.yml/badge.svg)](https://github.com/jarenyap/ip/actions/workflows/gradle.yml)
+
 Atlas is a personal task-management chatbot with a Greek-oracle personality. It keeps track of your tasks — todos, deadlines, and events — and speaks to you in the voice of the pantheon.
 
 ## Features
