@@ -3,6 +3,7 @@ package atlas.storage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -19,6 +20,7 @@ import atlas.AtlasException;
 import atlas.client.Client;
 import atlas.task.Deadline;
 import atlas.task.Event;
+import atlas.task.Priority;
 import atlas.task.Task;
 import atlas.task.Todo;
 
@@ -192,5 +194,97 @@ public class StorageTest {
                 "T | 0 | buy milk",
                 "C | Bob | 91234567 | bob@example.com") + System.lineSeparator(),
                 Files.readString(storagePath));
+    }
+
+    @Test
+    void savesAndLoadsPrioritiesForEveryTaskType() throws AtlasException {
+        Path storagePath = temporaryDirectory.resolve("atlas.txt");
+        Storage storage = new Storage(storagePath.toString());
+        Todo todo = new Todo("read the Odyssey");
+        todo.setPriority(Priority.HIGH);
+        Deadline deadline = new Deadline("return book", LocalDate.of(2026, 9, 1));
+        deadline.setPriority(Priority.LOW);
+        Event event = new Event("project meeting", "2pm", "4pm");
+        event.setPriority(Priority.MEDIUM);
+
+        saveTasks(storage, new ArrayList<>(List.of(todo, deadline, event)));
+        ArrayList<Task> loaded = storage.load().getTasks();
+
+        assertEquals(3, loaded.size());
+        assertEquals(Priority.HIGH, loaded.get(0).getPriority());
+        assertEquals(Priority.LOW, loaded.get(1).getPriority());
+        assertEquals(Priority.MEDIUM, loaded.get(2).getPriority());
+        assertEquals("[T][ ][HIGH] read the Odyssey", loaded.get(0).toString());
+    }
+
+    @Test
+    void writesThePriorityFieldOnlyWhenATaskHasOne() throws IOException, AtlasException {
+        Path storagePath = temporaryDirectory.resolve("atlas.txt");
+        Storage storage = new Storage(storagePath.toString());
+        Todo ranked = new Todo("ranked");
+        ranked.setPriority(Priority.LOW);
+
+        saveTasks(storage, new ArrayList<>(List.of(ranked, new Todo("plain"))));
+
+        assertEquals(String.join(System.lineSeparator(),
+                "T | 0 | ranked | low",
+                "T | 0 | plain") + System.lineSeparator(),
+                Files.readString(storagePath));
+    }
+
+    @Test
+    void loadsHandWrittenTaskRecordsWithAndWithoutAPriorityField() throws IOException, AtlasException {
+        Path storagePath = temporaryDirectory.resolve("atlas.txt");
+        Files.writeString(storagePath, String.join(System.lineSeparator(),
+                "T | 0 | no priority",
+                "T | 0 | ranked | low",
+                "D | 1 | due | 2026-09-01 | medium",
+                "E | 0 | meeting | 2pm | 4pm | high",
+                "T | 0 | empty field | ",
+                "T | 0 | bad word | urgent"));
+
+        ArrayList<Task> loaded = new Storage(storagePath.toString()).load().getTasks();
+
+        assertEquals(5, loaded.size());
+        assertNull(loaded.get(0).getPriority());
+        assertEquals(Priority.LOW, loaded.get(1).getPriority());
+        assertEquals(Priority.MEDIUM, loaded.get(2).getPriority());
+        assertTrue(loaded.get(2).isDone());
+        assertEquals(Priority.HIGH, loaded.get(3).getPriority());
+        assertNull(loaded.get(4).getPriority());
+    }
+
+    @Test
+    void skipsTaskRecordsThatHoldMoreFieldsThanTheFormatAllows() throws IOException, AtlasException {
+        Path storagePath = temporaryDirectory.resolve("atlas.txt");
+        Files.writeString(storagePath, String.join(System.lineSeparator(),
+                "T | 0 | keep todo",
+                "T | 0 | too many | high | junk",
+                "D | 0 | keep deadline | 2026-09-01",
+                "D | 0 | too many | 2026-09-01 | high | junk",
+                "E | 0 | keep event | 1pm | 2pm",
+                "E | 0 | too many | 1pm | 2pm | high | junk"));
+
+        ArrayList<Task> loaded = new Storage(storagePath.toString()).load().getTasks();
+
+        assertEquals(3, loaded.size());
+        assertEquals("keep todo", loaded.get(0).getDescription());
+        assertEquals("keep deadline", loaded.get(1).getDescription());
+        assertEquals("keep event", loaded.get(2).getDescription());
+    }
+
+    @Test
+    void roundTripsARankedTaskWhoseDescriptionHoldsDelimiters() throws AtlasException {
+        Path storagePath = temporaryDirectory.resolve("atlas.txt");
+        Storage storage = new Storage(storagePath.toString());
+        Todo ranked = new Todo("buy | milk \\ now");
+        ranked.setPriority(Priority.MEDIUM);
+
+        saveTasks(storage, new ArrayList<>(List.of(ranked)));
+        ArrayList<Task> loaded = storage.load().getTasks();
+
+        assertEquals(1, loaded.size());
+        assertEquals("buy | milk \\ now", loaded.get(0).getDescription());
+        assertEquals(Priority.MEDIUM, loaded.get(0).getPriority());
     }
 }

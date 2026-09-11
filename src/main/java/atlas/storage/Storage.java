@@ -15,6 +15,7 @@ import atlas.AtlasException;
 import atlas.client.Client;
 import atlas.task.Deadline;
 import atlas.task.Event;
+import atlas.task.Priority;
 import atlas.task.Task;
 import atlas.task.Todo;
 
@@ -28,6 +29,10 @@ import atlas.task.Todo;
  *   Event:    E | 1 | description | from | to
  *   Client:   C | name | phone | email
  * </pre>
+ * A task line carries one extra field, holding the priority word, only when
+ * the task has a priority, e.g. {@code T | 0 | description | high}. An empty
+ * priority field means the task has no priority, so files written before
+ * priorities existed still load.
  * The second task field is 1 if the task is done and 0 otherwise. A client's
  * phone and email are left empty when they are not known. Literal '|' and
  * '\' characters inside stored text are escaped as '\|' and '\\', so any user
@@ -142,7 +147,8 @@ public class Storage {
     }
 
     /**
-     * Parses one storage line into a task.
+     * Parses one storage line into a task. A task with a priority carries one
+     * extra field, holding the level word.
      *
      * @param parts fields of the storage line.
      * @param type record type read from the first field.
@@ -159,19 +165,23 @@ public class Storage {
         }
         boolean isDone = doneField.equals("1");
         String description = unescape(parts[2].trim());
+        Task task;
+        int fieldsBeforePriority;
         switch (type) {
-            case "T":
-                if (parts.length != 3) {
+            case "T": {
+                if (parts.length > 4) {
                     throw new AtlasException("todo has extra fields");
                 }
-                Todo todo = new Todo(description);
-                if (isDone) {
-                    todo.markAsDone();
-                }
-                return todo;
-            case "D":
-                if (parts.length != 4) {
+                task = new Todo(description);
+                fieldsBeforePriority = 3;
+                break;
+            }
+            case "D": {
+                if (parts.length < 4) {
                     throw new AtlasException("deadline needs a by field");
+                }
+                if (parts.length > 5) {
+                    throw new AtlasException("deadline has extra fields");
                 }
                 LocalDate by;
                 try {
@@ -179,23 +189,49 @@ public class Storage {
                 } catch (DateTimeParseException e) {
                     throw new AtlasException("deadline by is not a date");
                 }
-                Deadline deadline = new Deadline(description, by);
-                if (isDone) {
-                    deadline.markAsDone();
-                }
-                return deadline;
-            case "E":
-                if (parts.length != 5) {
+                task = new Deadline(description, by);
+                fieldsBeforePriority = 4;
+                break;
+            }
+            case "E": {
+                if (parts.length < 5) {
                     throw new AtlasException("event needs from and to fields");
                 }
-                Event event = new Event(description, unescape(parts[3].trim()), unescape(parts[4].trim()));
-                if (isDone) {
-                    event.markAsDone();
+                if (parts.length > 6) {
+                    throw new AtlasException("event has extra fields");
                 }
-                return event;
+                task = new Event(description, unescape(parts[3].trim()), unescape(parts[4].trim()));
+                fieldsBeforePriority = 5;
+                break;
+            }
             default:
                 throw new AtlasException("unknown record type '" + type + "'");
         }
+        // The priority word is written only when the task has a priority, so a
+        // file written before priorities existed loads exactly as it did then.
+        String priorityField = parts.length > fieldsBeforePriority ? parts[fieldsBeforePriority].trim() : "";
+        if (!priorityField.isEmpty()) {
+            task.setPriority(parsePriorityWord(priorityField));
+        }
+        if (isDone) {
+            task.markAsDone();
+        }
+        return task;
+    }
+
+    /**
+     * Parses the priority field of a task record.
+     *
+     * @param field text of the priority field.
+     * @return the level named by the field.
+     * @throws AtlasException if the field names no level Atlas knows.
+     */
+    private Priority parsePriorityWord(String field) throws AtlasException {
+        Priority priority = Priority.fromWord(field);
+        if (priority == null) {
+            throw new AtlasException("unknown priority '" + field + "'");
+        }
+        return priority;
     }
 
     /**
@@ -223,7 +259,8 @@ public class Storage {
     }
 
     /**
-     * Converts a task into its escaped single-line storage representation.
+     * Converts a task into its escaped single-line storage representation. A
+     * task with a priority gains a trailing field holding the level word.
      *
      * @param task task to serialize.
      * @return storage line for the task.
@@ -231,19 +268,21 @@ public class Storage {
     private String toFileLine(Task task) {
         String done = task.isDone() ? "1" : "0";
         String description = escape(task.getDescription());
+        String line;
         if (task instanceof Todo) {
-            return "T | " + done + " | " + description;
-        }
-        if (task instanceof Deadline) {
+            line = "T | " + done + " | " + description;
+        } else if (task instanceof Deadline) {
             Deadline deadline = (Deadline) task;
-            return "D | " + done + " | " + description + " | " + deadline.getBy().toString();
-        }
-        if (task instanceof Event) {
+            line = "D | " + done + " | " + description + " | " + deadline.getBy().toString();
+        } else if (task instanceof Event) {
             Event event = (Event) task;
-            return "E | " + done + " | " + description + " | " + escape(event.getFrom())
+            line = "E | " + done + " | " + description + " | " + escape(event.getFrom())
                     + " | " + escape(event.getTo());
+        } else {
+            throw new AssertionError("Unknown task type: " + task);
         }
-        throw new AssertionError("Unknown task type: " + task);
+        Priority priority = task.getPriority();
+        return priority == null ? line : line + " | " + priority.getWord();
     }
 
     /**

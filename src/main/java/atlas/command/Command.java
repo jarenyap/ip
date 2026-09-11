@@ -22,6 +22,8 @@ public enum Command {
     DEADLINE("deadline"),
     /** Adds an event task. */
     EVENT("event"),
+    /** Ranks a task as high, medium or low priority. */
+    PRIORITY("priority"),
     /** Manages clients. */
     CLIENT("client");
 
