@@ -8,6 +8,7 @@ import atlas.command.ClientCommand;
 import atlas.command.Command;
 import atlas.command.Parser;
 import atlas.storage.Storage;
+import atlas.task.Priority;
 import atlas.task.Task;
 import atlas.task.TaskList;
 
@@ -32,6 +33,9 @@ public class AtlasSession {
     /** Message shown when a client number does not name an existing client. */
     private static final String CLIENT_NUMBER_INVALID_MESSAGE =
             "No such client in the pantheon. Use: client delete <number>";
+    /** Message shown when a priority number does not name an existing task. */
+    private static final String PRIORITY_NUMBER_INVALID_MESSAGE =
+            "No such task in the pantheon. Use: " + Parser.PRIORITY_SYNTAX;
 
     /**
      * Receives the messages Atlas produces while handling a command. A
@@ -78,7 +82,7 @@ public class AtlasSession {
             Command cmd = Parser.parseCommand(line);
             if (cmd == null) {
                 throw new AtlasException("The Oracle is silent on that word. "
-                        + "Try: todo, deadline, event, list, mark, unmark, delete, find, client, bye.");
+                        + "Try: todo, deadline, event, list, mark, unmark, delete, find, priority, client, bye.");
             }
             switch (cmd) {
                 case LIST:
@@ -134,6 +138,22 @@ public class AtlasSession {
                         }
                     }
                     break;
+                case PRIORITY: {
+                    int index = parsePriorityNumber(line);
+                    String level = Parser.parsePriorityLevel(line);
+                    Task ranked = tasks.get(index - 1);
+                    if (level.equals(Parser.PRIORITY_NONE_WORD)) {
+                        ranked.clearPriority();
+                        saveAll();
+                        output.speak("Noted. I've cleared this task's rank:");
+                    } else {
+                        ranked.setPriority(Priority.fromWord(level));
+                        saveAll();
+                        output.speak("Noted. I've ranked this task:");
+                    }
+                    output.speak("  " + ranked);
+                    break;
+                }
                 case TODO:
                 case DEADLINE:
                 case EVENT: {
@@ -233,6 +253,24 @@ public class AtlasSession {
         int index = Parser.parseNumber(argument);
         if (index < 1 || index > clients.size()) {
             throw new AtlasException(CLIENT_NUMBER_INVALID_MESSAGE);
+        }
+        return index;
+    }
+
+    /**
+     * Returns the task number that follows a priority command, after checking
+     * that it refers to an existing task. A command carrying no number at all
+     * is reported by the parser.
+     *
+     * @param line the full command line typed by the user.
+     * @return the validated 1-based task number.
+     * @throws AtlasException if the number is missing, is not a number, or
+     *     falls outside the current task list.
+     */
+    private int parsePriorityNumber(String line) throws AtlasException {
+        int index = Parser.parsePriorityNumber(line);
+        if (index < 1 || index > tasks.size()) {
+            throw new AtlasException(PRIORITY_NUMBER_INVALID_MESSAGE);
         }
         return index;
     }

@@ -16,6 +16,7 @@ Atlas is a personal task-management chatbot with a Greek-oracle personality. It 
 | `unmark` | `unmark <number>` | Marks a task as not done |
 | `delete` | `delete <number>` | Removes a task |
 | `find` | `find <keyword>` | Shows tasks whose descriptions contain the keyword |
+| `priority` | `priority <number> <high\|medium\|low\|none>` | Ranks a task; `none` clears the rank |
 | `client add` | `client add <name> [/phone <number>] [/email <address>]` | Adds a client |
 | `client list` | `client list` | Shows all clients |
 | `client find` | `client find <keyword>` | Shows clients whose name, phone or email contains the keyword |
@@ -23,6 +24,10 @@ Atlas is a personal task-management chatbot with a Greek-oracle personality. It 
 | `bye` | `bye` | Exits Atlas |
 
 Tasks and clients are numbered separately, so deleting a client never renumbers your tasks.
+
+A task can be ranked with `priority <number> <high|medium|low>`. The level shows up in `list`
+and `find` as a tag such as `[HIGH]`, is stored with the task, and is removed with
+`priority <number> none`.
 
 Example session:
 
@@ -92,4 +97,4 @@ Run the UI regression harness from the project root:
 ./test/ui-test.sh
 ```
 
-It runs 26 scripted sessions against a clean build and verifies the expected output for every command and error path.
+It runs 29 scripted sessions against a clean build and verifies the expected output for every command and error path.

@@ -192,4 +192,54 @@ public class ParserTest {
         assertEquals(3, Parser.parseNumber(" 3 "));
         assertEquals(-1, Parser.parseNumber("abc"));
     }
+
+    @Test
+    void recognisesThePriorityCommand() {
+        assertEquals(Command.PRIORITY, Parser.parseCommand("priority"));
+        assertEquals(Command.PRIORITY, Parser.parseCommand("priority 2 high"));
+
+        assertNull(Parser.parseCommand("priorities"));
+    }
+
+    @Test
+    void parsesPriorityNumbersAndLevels() throws AtlasException {
+        assertEquals(2, Parser.parsePriorityNumber("priority 2 high"));
+        assertEquals(2, Parser.parsePriorityNumber("priority 2 "));
+        assertEquals(-1, Parser.parsePriorityNumber("priority abc high"));
+        assertEquals(3, Parser.parsePriorityNumber("priority 3\thigh"));
+
+        AtlasException noArgument = assertThrows(AtlasException.class, () ->
+                Parser.parsePriorityNumber("priority"));
+        AtlasException blankArgument = assertThrows(AtlasException.class, () ->
+                Parser.parsePriorityNumber("priority "));
+
+        assertEquals("Which labour shall I rank? Use: " + Parser.PRIORITY_SYNTAX, noArgument.getMessage());
+        assertEquals(noArgument.getMessage(), blankArgument.getMessage());
+
+        assertEquals("high", Parser.parsePriorityLevel("priority 1 high"));
+        assertEquals("medium", Parser.parsePriorityLevel("priority 2 medium"));
+        assertEquals("low", Parser.parsePriorityLevel("priority 3 low"));
+        assertEquals("none", Parser.parsePriorityLevel("priority 4 none"));
+        assertEquals("high", Parser.parsePriorityLevel("priority 5  high"));
+        assertEquals("high", Parser.parsePriorityLevel("priority 6\thigh"));
+    }
+
+    @Test
+    void rejectsPriorityCommandsWithoutAUsableLevel() {
+        AtlasException missing = assertThrows(AtlasException.class, () ->
+                Parser.parsePriorityLevel("priority 1"));
+        AtlasException trailingSpace = assertThrows(AtlasException.class, () ->
+                Parser.parsePriorityLevel("priority 1 "));
+        AtlasException unknown = assertThrows(AtlasException.class, () ->
+                Parser.parsePriorityLevel("priority 1 urgent"));
+        AtlasException extraWord = assertThrows(AtlasException.class, () ->
+                Parser.parsePriorityLevel("priority 1 high extra"));
+
+        assertEquals("Rank it high, medium or low, or none to clear it. Use: " + Parser.PRIORITY_SYNTAX,
+                missing.getMessage());
+        assertEquals(missing.getMessage(), trailingSpace.getMessage());
+        assertEquals("The Fates know only high, medium, low or none. Use: " + Parser.PRIORITY_SYNTAX,
+                unknown.getMessage());
+        assertEquals(unknown.getMessage(), extraWord.getMessage());
+    }
 }

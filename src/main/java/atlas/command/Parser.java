@@ -7,6 +7,7 @@ import atlas.AtlasException;
 import atlas.client.Client;
 import atlas.task.Deadline;
 import atlas.task.Event;
+import atlas.task.Priority;
 import atlas.task.Task;
 import atlas.task.Todo;
 
@@ -15,6 +16,11 @@ import atlas.task.Todo;
  * extracts task details, client details or indexes from the rest of the line.
  */
 public class Parser {
+
+    /** Syntax of the priority command, repeated in its error messages. */
+    public static final String PRIORITY_SYNTAX = "priority <number> <high|medium|low|none>";
+    /** Level word that removes a task's priority. */
+    public static final String PRIORITY_NONE_WORD = "none";
 
     /** Separator that introduces the deadline date in a deadline command. */
     private static final String BY_MARKER = " /by ";
@@ -26,6 +32,16 @@ public class Parser {
     private static final String PHONE_MARKER = " /phone ";
     /** Separator that introduces a client's email address. */
     private static final String EMAIL_MARKER = " /email ";
+
+    /** Message shown when a priority command carries no task number. */
+    private static final String MISSING_PRIORITY_NUMBER_MESSAGE =
+            "Which labour shall I rank? Use: " + PRIORITY_SYNTAX;
+    /** Message shown when a priority command carries no level word. */
+    private static final String MISSING_PRIORITY_LEVEL_MESSAGE =
+            "Rank it high, medium or low, or none to clear it. Use: " + PRIORITY_SYNTAX;
+    /** Message shown when a priority command names no known level. */
+    private static final String UNKNOWN_PRIORITY_LEVEL_MESSAGE =
+            "The Fates know only high, medium, low or none. Use: " + PRIORITY_SYNTAX;
 
     /** Syntax of the client add command, repeated in its error messages. */
     private static final String CLIENT_ADD_SYNTAX = "client add <name> [/phone <number>] [/email <address>]";
@@ -109,6 +125,98 @@ public class Parser {
             throw new AtlasException("What shall I seek, mortal? Use: find <keyword>");
         }
         return remainder.split("\\s+");
+    }
+
+    /**
+     * Parses the task number at the start of a priority command, e.g. the 2 in
+     * "priority 2 high". Text after the number is ignored here, because
+     * {@link #parsePriorityLevel} is what validates it.
+     *
+     * @param line input line containing a priority command.
+     * @return parsed 1-based task number, or {@code -1} when the leading
+     *     argument is not a number.
+     * @throws AtlasException if the command carries no argument at all.
+     */
+    public static int parsePriorityNumber(String line) throws AtlasException {
+        String argument = textAfterCommand(line, Command.PRIORITY);
+        if (argument.isEmpty()) {
+            throw new AtlasException(MISSING_PRIORITY_NUMBER_MESSAGE);
+        }
+        return parseNumber(firstToken(argument));
+    }
+
+    /**
+     * Parses the level word after a priority command, e.g. {@code high} in
+     * "priority 2 high". The level word is the only text allowed after the
+     * task number.
+     *
+     * @param line input line containing a priority command.
+     * @return the level word, which is either a priority level or
+     *     {@link #PRIORITY_NONE_WORD} to remove the priority.
+     * @throws AtlasException if no level word was supplied or the word names
+     *     no level Atlas knows.
+     */
+    public static String parsePriorityLevel(String line) throws AtlasException {
+        String level = afterFirstToken(textAfterCommand(line, Command.PRIORITY));
+        if (level.isEmpty()) {
+            throw new AtlasException(MISSING_PRIORITY_LEVEL_MESSAGE);
+        }
+        if (!level.equals(PRIORITY_NONE_WORD) && Priority.fromWord(level) == null) {
+            throw new AtlasException(UNKNOWN_PRIORITY_LEVEL_MESSAGE);
+        }
+        return level;
+    }
+
+    /**
+     * Returns the trimmed text that follows a command word, or an empty string
+     * when the line holds nothing but the command.
+     *
+     * @param line input line.
+     * @param cmd command whose word starts the line.
+     * @return the remaining text.
+     */
+    private static String textAfterCommand(String line, Command cmd) {
+        int prefixLength = cmd.getWord().length();
+        return line.length() <= prefixLength ? "" : line.substring(prefixLength).trim();
+    }
+
+    /**
+     * Returns the first token of some text, where any whitespace character
+     * separates tokens. Treating a tab as a separator matches how the rest of
+     * the parser, and {@link #parseNumber}, handle whitespace.
+     *
+     * @param text text to split.
+     * @return the first token, or the whole text when it holds no whitespace.
+     */
+    private static String firstToken(String text) {
+        int separator = indexOfWhitespace(text);
+        return separator == -1 ? text : text.substring(0, separator);
+    }
+
+    /**
+     * Returns the text that follows the first token.
+     *
+     * @param text text to split.
+     * @return the remaining text, trimmed, or an empty string when there is none.
+     */
+    private static String afterFirstToken(String text) {
+        int separator = indexOfWhitespace(text);
+        return separator == -1 ? "" : text.substring(separator + 1).trim();
+    }
+
+    /**
+     * Returns the position of the first whitespace character in some text.
+     *
+     * @param text text to scan.
+     * @return the zero-based position, or {@code -1} when there is no whitespace.
+     */
+    private static int indexOfWhitespace(String text) {
+        for (int i = 0; i < text.length(); i++) {
+            if (Character.isWhitespace(text.charAt(i))) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /**

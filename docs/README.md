@@ -64,6 +64,45 @@ client delete 1
 Client numbers are independent of task numbers, so deleting a client never
 changes how your tasks are numbered. Both are stored in the same data file.
 
+## Setting priorities
+
+Rank a task so that what matters first is visible at a glance:
+
+```
+priority 1 high
+```
+
+Expected outcome:
+
+```
+Noted. I've ranked this task:
+  [T][ ][HIGH] buy milk
+```
+
+The level appears as a tag right after the status icon in `list` and `find`, and
+only when a level is set:
+
+```
+Here are the tasks in your list:
+1.[T][ ][HIGH] buy milk
+2.[D][X][LOW] submit report (by: Oct 15 2019)
+3.[E][ ] project meeting (from: 2pm to: 4pm)
+```
+
+The three levels are `high`, `medium` and `low`. Remove a level with `none`:
+
+```
+priority 1 none
+```
+
+```
+Noted. I've cleared this task's rank:
+  [T][ ] buy milk
+```
+
+The level is stored with the task, so it survives a restart, and a task without
+a level is stored exactly as it was before this feature existed.
+
 ## Feature ABC
 
 // Feature details

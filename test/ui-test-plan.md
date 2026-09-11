@@ -59,8 +59,47 @@ Unit tests cover the client list operations, the display form, the matching
 rule, and the storage round trip, including hand-written records that hold
 only a name, or a name and a phone.
 
-Intentional behaviour change introduced with this increment: the unknown-word
-reply now lists `client` among the commands. Two cases produce that reply.
+## C-Priority note
+
+The `priority` command attaches a level to a task:
+
+- `priority <number> <high|medium|low>` — attaches that level
+- `priority <number> none` — removes the level
+
+The task number is validated first, then the level word, so `priority abc high`
+reports the pantheon message while `priority 1 urgent` reports the Fates
+message. The level word must be the only text after the number.
+
+A ranked task shows a bracketed tag straight after the status icon, and only
+when a level is set, so unranked tasks keep their previous display form:
+`1.[T][ ][HIGH] buy milk`, `2.[D][X][LOW] submit report (by: Oct 15 2019)`,
+`3.[E][ ][MEDIUM] project meeting (from: 2pm to: 4pm)`. Both `list` and `find`
+show the tag, since both print the task's display form.
+
+A task record gains a trailing priority field only when the task has a level
+(`T | 0 | buy milk | high`, `D | 0 | submit report | 2019-10-15 | low`,
+`E | 0 | project meeting | 2pm | 4pm | medium`). On load, 3 or 4 fields are
+accepted for `T`, 4 or 5 for `D`, and 5 or 6 for `E`; an empty field means no
+level, and an unrecognised word makes the line corrupted. Files written before
+this increment load unchanged, and client records are untouched.
+
+Unit tests cover the level words, the display form with and without a level, the
+command and level parsing including every rejection message, and the storage
+round trip for all three task types. `priority-errors` cannot prove from its
+output alone that the rejected commands changed nothing, since the harness
+cannot assert that a line is absent; the verification battery checks the data
+file after that case instead. `priority-persistence` ends its first session with
+a priority command, so a level that is only held in memory and never written to
+disk fails that case; the battery separately checks a session whose last command
+is a clear, because a cleared level can only be proven absent from the data file.
+Whitespace around the number is insignificant, and a tab separates the number
+from the level exactly as a space does, matching how the other commands treat
+whitespace. `AtlasSessionTest` covers what the harness cannot: that ranking and
+clearing each reach the data file, that a bad task number is reported before a
+bad level, and that an upper-case level changes nothing.
+
+Intentional behaviour changes introduced with these increments: the unknown-word
+reply now lists `priority` and `client` among the commands. Two cases produce that reply.
 `unknown-command.expected` asserts the full line, so it was updated in the
 same commit. `uppercase-bye.expected` asserts only the opening words of the
 message, so it needed no change; it now also asserts the `list` reply that
@@ -74,7 +113,7 @@ follows, which is what proves the session continues after an unknown word.
 | `empty-list` | `list` with no tasks | `list`, `bye` | `Your list is empty.` |
 | `mark-unmark-all-types` | mark AND unmark on every task type | `todo a`, `deadline b /by 2019-12-02`, `event c /from 1pm /to 2pm`, `mark 1`, `mark 2`, `mark 3`, `list`, `unmark 1`, `unmark 2`, `unmark 3`, `list`, `bye` | All three `[X]` after mark; all three `[ ]` restored after unmark |
 | `special-chars` | punctuation and multi-word fields parse | `deadline fix bug :-) /by 2019-10-15`, `event team dinner /from 7pm at marina /to 9pm at home`, `list`, `bye` | Indexed list lines with `(by: Oct 15 2019)` and `(from: 7pm at marina to: 9pm at home)` |
-| `unknown-command` | bare text is rejected, not silently added | `plain task`, `bye` | Full Oracle message with command list, including `client` |
+| `unknown-command` | bare text is rejected, not silently added | `plain task`, `bye` | Full Oracle message with command list, including `priority` and `client` |
 | `uppercase-bye` | only exact `bye` exits | `BYE`, `list`, `bye` | `BYE` rejected as unknown; the `list` that follows still runs (`Your list is empty.`) |
 | `empty-todo` | empty todo description rejected | `todo`, `todo `, `bye` | `Name your labour, mortal: todo <desc>` |
 | `missing-by` | deadline without ` /by ` rejected | `deadline do work`, `deadline`, `bye` | Full Fates message with syntax hint |
@@ -96,6 +135,10 @@ follows, which is what proves the session continues after an unknown word.
 | `client-errors` | D-Clients: every malformed client command is rejected and adds nothing | `client`, `client foo`, `client add`, `client add /phone 91234567`, `client add Bob /phone`, `client add Bob /email`, `client add B /phone /email x@y.com` (two markers sharing one space), `client add A /email /phone 2`, `client delete`, `client delete abc`, `client delete 0`, `client delete 99`, `client find`, `client list`, `bye` | Full usage, missing-name, empty-value, missing-number, no-such-client and missing-keyword messages; client list still empty |
 | `client-delete-find` | D-Clients: find matches name/phone/email; delete renumbers clients and leaves tasks untouched | `todo buy milk`, three `client add` commands, `client find x.com`, `client delete 2`, `client list`, `list`, `client delete abc`, `client find zzz`, `bye` | Matching client listed; removed client shown; clients renumbered; task still `1.[T][ ] buy milk`; invalid delete rejected; no-match message shown |
 | `client-persistence` | D-Clients: clients and tasks share one file and survive a restart, including escaped delimiters | run 1: two `client add` commands (one with `|` and `\` in the fields), `todo buy milk`, `bye`; run 2: `client list`, `list`, `client delete 1`, `client list`, `bye` | Run 2 loads both entity types from disk; escaped characters round-trip; deleting a client keeps the task and renumbers the rest |
+
+| `priority-set-list` | C-Priority: rank all three task types, list, find, clear one level, re-rank another | `todo buy milk`, `deadline submit report /by 2019-10-15`, `event project meeting /from 2pm /to 4pm`, `priority 1 high`, `priority 2 low`, `priority 3 medium`, `list`, `find milk`, `priority 3 none`, `list`, `priority 2 high`, `list`, `bye` | Ranked echoes with `[HIGH]`, `[LOW]` and `[MEDIUM]`; indexed list and find rows carrying the tags; the cleared row back to `3.[E][ ]`; the re-ranked row `2.[D][ ][HIGH]` |
+| `priority-errors` | C-Priority: every malformed priority command is rejected and changes nothing | bare `priority`, `priority 0 high`, `priority abc high`, `todo only task`, `priority 1`, `priority 1 ` (trailing space), `priority 1 urgent`, `priority 1 high extra`, `priority 1 none`, `priority high 1`, `priority 2 low`, `list`, `bye` | Full missing-number, pantheon, missing-level and Fates messages; the cleared-rank reply for `none`; `1.[T][ ] only task` still unranked after every rejection |
+| `priority-persistence` | C-Priority: levels survive a restart with tasks and clients in one file, including a level set as the last command of a session | run 1: add todo/deadline/event, `priority 1 high`, `priority 3 low`, `client add Bob /phone 91234567`, `priority 2 medium`, `bye`; run 2: `list`, `client list`, `priority 1 none`, `list`, `bye` | Run 2 lists run 1's levels loaded from disk (`[HIGH]`, `[MEDIUM]`, `[LOW]`) and the client alongside them, so a level kept only in memory fails the case; then the cleared task is back to `1.[T][ ] buy milk` |
 
 ## Harness limitation
 
