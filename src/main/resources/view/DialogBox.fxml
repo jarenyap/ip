@@ -12,7 +12,7 @@
     <children>
         <StackPane fx:id="bubble">
             <children>
-                <TextFlow fx:id="flow">
+                <TextFlow fx:id="flow" styleClass="bubble-flow">
                     <children>
                         <Text fx:id="dialog" styleClass="bubble-text"/>
                     </children>

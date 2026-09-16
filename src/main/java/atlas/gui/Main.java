@@ -56,6 +56,7 @@ public class Main extends Application {
             stage.setMinHeight(480);
             stage.setMinWidth(340);
             stage.show();
+            fxmlLoader.<MainWindow>getController().focusInput();
         } catch (IOException e) {
             e.printStackTrace();
         }

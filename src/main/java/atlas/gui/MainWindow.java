@@ -88,7 +88,11 @@ public class MainWindow extends AnchorPane {
         session.respond(userText);
         String reply = collector.getReply();
         if (!reply.isEmpty()) {
-            addAtlasDialog(reply);
+            if (collector.isError()) {
+                addErrorDialog(reply);
+            } else {
+                addAtlasDialog(reply);
+            }
         }
     }
 
@@ -108,5 +112,23 @@ public class MainWindow extends AnchorPane {
      */
     private void addAtlasDialog(String text) {
         dialogContainer.getChildren().add(DialogBox.getAtlasDialog(text));
+    }
+
+    /**
+     * Appends one Atlas error bubble to the chat, so a rejected command is
+     * easier to tell apart from a normal reply.
+     *
+     * @param text the error message to show.
+     */
+    private void addErrorDialog(String text) {
+        dialogContainer.getChildren().add(DialogBox.getErrorDialog(text));
+    }
+
+    /**
+     * Puts the caret in the command box, so the window is ready to be typed in
+     * the moment it appears. Call this after the window is shown.
+     */
+    public void focusInput() {
+        userInput.requestFocus();
     }
 }

@@ -30,3 +30,23 @@
 .reply-label .bubble-text {
     -fx-fill: #2a2622;
 }
+
+/* Multi-line replies, such as a task listing, read as separate rows rather than
+   as one block of text. */
+.bubble-flow {
+    -fx-line-spacing: 4px;
+}
+
+/* An error bubble (left side). It also carries .reply-label, so its geometry
+   comes from there and only the frame and the text colour change here. These
+   rules must stay after .reply-label: the two selectors have equal specificity,
+   so the later one wins. */
+.error-label {
+    -fx-background-color: #fdf3f1;
+    -fx-border-color: #a3312a;
+    -fx-border-width: 1px 1px 1px 4px;
+}
+
+.error-label .bubble-text {
+    -fx-fill: #5c1a14;
+}

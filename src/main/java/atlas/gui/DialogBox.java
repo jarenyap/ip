@@ -15,7 +15,8 @@ import javafx.scene.text.TextFlow;
 /**
  * One chat message: a wrapping text bubble with no avatar. User messages align
  * to the right with the default label styling; Atlas replies align to the left
- * with the reply-label styling. The layout is defined in view/DialogBox.fxml.
+ * with the reply-label styling, and an error reply adds the error-label styling
+ * on top of it so it stands apart from an ordinary reply. The layout is defined in view/DialogBox.fxml.
  * The message is a {@link Text} node inside a {@link TextFlow}: unlike a
  * bounded {@link javafx.scene.control.Label}, wrapped text is never
  * ellipsized, so the full message is always shown. The TextFlow reports the
@@ -39,6 +40,9 @@ public class DialogBox extends HBox {
     /** Horizontal bubble padding, added to the cap for the bubble's own max. */
     private static final double BUBBLE_H_PADDING = 24.0;
 
+    /** Style class that marks a bubble as an error report. */
+    private static final String ERROR_STYLE_CLASS = "error-label";
+
     /** Bubble chrome: carries the background, radius, border and padding. */
     @FXML
     private StackPane bubble;
@@ -56,8 +60,10 @@ public class DialogBox extends HBox {
      * @param text the message text to display.
      * @param isAtlasReply whether this bubble is Atlas's reply (left-aligned)
      *                     or the user's message (right-aligned).
+     * @param isError whether this bubble reports an error, in which case it
+     *                also carries the error styling.
      */
-    private DialogBox(String text, boolean isAtlasReply) {
+    private DialogBox(String text, boolean isAtlasReply, boolean isError) {
         try {
             FXMLLoader fxmlLoader = new FXMLLoader(DialogBox.class.getResource("/view/DialogBox.fxml"));
             fxmlLoader.setController(this);
@@ -70,6 +76,9 @@ public class DialogBox extends HBox {
         dialog.setText(text);
         bindWrapWidthToWindow();
         bubble.getStyleClass().add(isAtlasReply ? "reply-label" : "label");
+        if (isError) {
+            bubble.getStyleClass().add(ERROR_STYLE_CLASS);
+        }
         if (isAtlasReply) {
             this.setAlignment(Pos.TOP_LEFT);
         }
@@ -104,7 +113,7 @@ public class DialogBox extends HBox {
      * @return a dialog box aligned for the user.
      */
     public static DialogBox getUserDialog(String text) {
-        return new DialogBox(text, false);
+        return new DialogBox(text, false, false);
     }
 
     /**
@@ -114,6 +123,17 @@ public class DialogBox extends HBox {
      * @return a dialog box aligned for Atlas.
      */
     public static DialogBox getAtlasDialog(String text) {
-        return new DialogBox(text, true);
+        return new DialogBox(text, true, false);
+    }
+
+    /**
+     * Creates a dialog box for an error Atlas reported, aligned to the left and
+     * styled to stand apart from an ordinary reply.
+     *
+     * @param text the error message.
+     * @return a dialog box styled as an error.
+     */
+    public static DialogBox getErrorDialog(String text) {
+        return new DialogBox(text, true, true);
     }
 }
