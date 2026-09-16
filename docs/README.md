@@ -148,4 +148,7 @@ Atlas starts without that record, tells you which line it was, and keeps a copy
 of the original file beside it as `atlas.txt.corrupted-<date>` before writing
 anything, so records already in the file are never lost for good.
 
+## Acknowledgements
+
+The screenshot above and the rest of the interface artwork were generated with AI image tools. See the [project README](https://github.com/jarenyap/ip#acknowledgements) for the tools and libraries Atlas uses.
 

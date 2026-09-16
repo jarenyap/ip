@@ -97,4 +97,10 @@ Run the UI regression harness from the project root:
 ./test/ui-test.sh
 ```
 
-It runs 29 scripted sessions against a clean build and verifies the expected output for every command and error path.
+It runs 34 scripted sessions against a clean build and verifies the expected output for every command and error path.
+
+## Acknowledgements
+
+Third-party libraries: [JavaFX](https://openjfx.io/) for the user interface, [JUnit 5](https://junit.org/junit5/) for the tests, and the [Gradle](https://gradle.org/) build tool.
+
+AI assistance was widespread rather than localised. ChatGPT and Codex were used throughout the project as collaborators for design, implementation and tests, and ChatGPT generated the profile pictures and the background artwork.
