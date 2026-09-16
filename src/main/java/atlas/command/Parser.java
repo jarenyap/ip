@@ -2,6 +2,9 @@ package atlas.command;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import atlas.AtlasException;
 import atlas.client.Client;
@@ -32,6 +35,16 @@ public class Parser {
     private static final String PHONE_MARKER = " /phone ";
     /** Separator that introduces a client's email address. */
     private static final String EMAIL_MARKER = " /email ";
+
+    /** Syntax of the deadline command, repeated in its error messages. */
+    private static final String DEADLINE_SYNTAX = "deadline <desc> /by <when>";
+    /** Syntax of the event command, repeated in its error messages. */
+    private static final String EVENT_SYNTAX = "event <desc> /from <start> /to <end>";
+
+    /** Clock time written with a colon, e.g. "14:00" or "2:30". */
+    private static final Pattern COLON_TIME = Pattern.compile("(\\d{1,2}):(\\d{2})");
+    /** Clock time written as three or four digits only, e.g. "1400" or "900". */
+    private static final Pattern COMPACT_TIME = Pattern.compile("\\d{3,4}");
 
     /** Message shown when a priority command carries no task number. */
     private static final String MISSING_PRIORITY_NUMBER_MESSAGE =
@@ -72,8 +85,12 @@ public class Parser {
      * @return command identified at the start of the line, or {@code null}.
      */
     public static Command parseCommand(String line) {
+        // Leading whitespace is insignificant, so an indented command is still
+        // recognised. Trailing whitespace keeps its meaning: a marker's closing
+        // space is what proves a value was left empty.
+        String text = line.stripLeading();
         for (Command cmd : Command.values()) {
-            if (line.equals(cmd.getWord()) || line.startsWith(cmd.getWord() + " ")) {
+            if (text.equals(cmd.getWord()) || text.startsWith(cmd.getWord() + " ")) {
                 return cmd;
             }
         }
@@ -220,6 +237,95 @@ public class Parser {
     }
 
     /**
+     * Counts how many times a marker appears in some text, scanning without
+     * overlap. Used to reject a command that names the same parameter twice.
+     *
+     * @param text text to scan.
+     * @param marker marker to look for.
+     * @return the number of occurrences.
+     */
+    private static int countMarkers(String text, String marker) {
+        int count = 0;
+        int position = text.indexOf(marker);
+        while (position != -1) {
+            count++;
+            position = text.indexOf(marker, position + marker.length());
+        }
+        return count;
+    }
+
+    /**
+     * Returns the minute of the day a plain clock time stands for, or null when
+     * the text is not a clock time. Accepted forms are "2pm", "2 pm", "2:30pm",
+     * "14:00" and "1400".
+     *
+     * <p>Free text such as "7pm at marina" is not a clock time, so callers read a
+     * null result as "these two values cannot be compared" rather than as an error.
+     *
+     * @param text value written after a /from or /to marker.
+     * @return minutes since midnight, or {@code null} when the text is not a
+     *     clock time.
+     */
+    private static Integer minuteOfDayOrNull(String text) {
+        String value = text.trim().toLowerCase(Locale.ROOT);
+        String suffix = "";
+        if (value.endsWith("am") || value.endsWith("pm")) {
+            suffix = value.substring(value.length() - 2);
+            value = value.substring(0, value.length() - 2).trim();
+        }
+        int hours;
+        int minutes;
+        Matcher colon = COLON_TIME.matcher(value);
+        if (colon.matches()) {
+            hours = Integer.parseInt(colon.group(1));
+            minutes = Integer.parseInt(colon.group(2));
+            if (minutes > 59) {
+                return null;
+            }
+        } else if (suffix.isEmpty() && COMPACT_TIME.matcher(value).matches()) {
+            // "1400" reads as 14:00, but a bare "2" or "230" is too ambiguous to read.
+            String digits = value.length() == 3 ? "0" + value : value;
+            hours = Integer.parseInt(digits.substring(0, 2));
+            minutes = Integer.parseInt(digits.substring(2));
+            if (minutes > 59) {
+                return null;
+            }
+        } else if (suffix.isEmpty() || !isAllDigits(value)) {
+            return null;
+        } else {
+            hours = Integer.parseInt(value);
+            minutes = 0;
+        }
+        if (!suffix.isEmpty()) {
+            if (hours < 1 || hours > 12) {
+                return null;
+            }
+            hours = hours % 12 + (suffix.equals("pm") ? 12 : 0);
+        } else if (hours > 23) {
+            return null;
+        }
+        return hours * 60 + minutes;
+    }
+
+    /**
+     * Returns whether some text holds only decimal digits.
+     *
+     * @param text text to inspect.
+     * @return {@code true} when the text is non-empty and every character is a digit.
+     */
+    private static boolean isAllDigits(String text) {
+        if (text.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < text.length(); i++) {
+            if (!Character.isDigit(text.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Returns the client subcommand a line asks for, e.g. ADD for
      * "client add Bob".
      *
@@ -262,6 +368,12 @@ public class Parser {
         String name = (firstMarker == -1 ? text : text.substring(0, firstMarker)).trim();
         if (name.isEmpty()) {
             throw new AtlasException(CLIENT_NAME_MISSING_MESSAGE);
+        }
+        if (countMarkers(text, PHONE_MARKER) > 1) {
+            throw new AtlasException("One number is enough, mortal. Use: " + CLIENT_ADD_SYNTAX);
+        }
+        if (countMarkers(text, EMAIL_MARKER) > 1) {
+            throw new AtlasException("One address is enough, mortal. Use: " + CLIENT_ADD_SYNTAX);
         }
         String phone = valueAfterMarker(text, phonePos, emailPos, PHONE_MARKER);
         if (phonePos != -1 && phone.isEmpty()) {
@@ -365,18 +477,21 @@ public class Parser {
                 return new Todo(desc);
             }
             case DEADLINE: {
+                if (countMarkers(line, BY_MARKER) > 1) {
+                    throw new AtlasException("One reckoning is enough, mortal. Use: " + DEADLINE_SYNTAX);
+                }
                 int byPos = line.indexOf(BY_MARKER);
                 if (byPos == -1) {
-                    throw new AtlasException("The Fates weave on schedule. Use: deadline <desc> /by <when>");
+                    throw new AtlasException("The Fates weave on schedule. Use: " + DEADLINE_SYNTAX);
                 }
                 String desc = byPos <= prefixLen ? "" : line.substring(prefixLen, byPos);
                 if (desc.trim().isEmpty()) {
-                    throw new AtlasException("Name your labour, mortal: deadline <desc> /by <when>");
+                    throw new AtlasException("Name your labour, mortal: " + DEADLINE_SYNTAX);
                 }
                 assert byPos > prefixLen : "byPos must point past the command prefix";
                 String byText = line.substring(byPos + BY_MARKER.length());
                 if (byText.trim().isEmpty()) {
-                    throw new AtlasException("The Fates weave on schedule. Use: deadline <desc> /by <when>");
+                    throw new AtlasException("The Fates weave on schedule. Use: " + DEADLINE_SYNTAX);
                 }
                 LocalDate by;
                 try {
@@ -388,31 +503,47 @@ public class Parser {
                 return new Deadline(desc, by);
             }
             case EVENT: {
+                if (countMarkers(line, FROM_MARKER) > 1) {
+                    throw new AtlasException("One departure is enough, mortal. Use: " + EVENT_SYNTAX);
+                }
+                if (countMarkers(line, TO_MARKER) > 1) {
+                    throw new AtlasException("One landing is enough, mortal. Use: " + EVENT_SYNTAX);
+                }
                 int fromPos = line.indexOf(FROM_MARKER);
                 if (fromPos == -1) {
                     throw new AtlasException("Even Icarus launched from somewhere. "
-                            + "Use: event <desc> /from <start> /to <end>");
+                            + "Use: " + EVENT_SYNTAX);
                 }
                 int toPos = line.indexOf(TO_MARKER, fromPos);
                 if (toPos == -1) {
                     throw new AtlasException("Icarus never planned a landing either. "
-                            + "Use: event <desc> /from <start> /to <end>");
+                            + "Use: " + EVENT_SYNTAX);
                 }
                 String desc = fromPos <= prefixLen ? "" : line.substring(prefixLen, fromPos);
                 if (desc.trim().isEmpty()) {
-                    throw new AtlasException("Name your labour, mortal: event <desc> /from <start> /to <end>");
+                    throw new AtlasException("Name your labour, mortal: " + EVENT_SYNTAX);
                 }
                 assert fromPos > prefixLen : "fromPos must point past the command prefix";
                 assert toPos > fromPos : "/to must come after /from";
-                String from = line.substring(fromPos + FROM_MARKER.length(), toPos);
+                int fromStart = fromPos + FROM_MARKER.length();
+                // The space that ends " /from " can also begin " /to ", as in
+                // "event x /from /to y". Ending the value at that shared space
+                // would place the end before the value began, so the end is
+                // never allowed to fall inside the marker itself.
+                String from = line.substring(fromStart, Math.max(toPos, fromStart));
                 if (from.trim().isEmpty()) {
                     throw new AtlasException("Even Icarus launched from somewhere. "
-                            + "Use: event <desc> /from <start> /to <end>");
+                            + "Use: " + EVENT_SYNTAX);
                 }
                 String to = line.substring(toPos + TO_MARKER.length());
                 if (to.trim().isEmpty()) {
                     throw new AtlasException("Icarus never planned a landing either. "
-                            + "Use: event <desc> /from <start> /to <end>");
+                            + "Use: " + EVENT_SYNTAX);
+                }
+                Integer fromMinutes = minuteOfDayOrNull(from);
+                if (fromMinutes != null && fromMinutes.equals(minuteOfDayOrNull(to))) {
+                    throw new AtlasException("Time flows one way, mortal: an event that "
+                            + "begins and ends together is no event. Use: " + EVENT_SYNTAX);
                 }
                 return new Event(desc, from, to);
             }

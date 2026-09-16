@@ -242,4 +242,74 @@ public class ParserTest {
                 unknown.getMessage());
         assertEquals(unknown.getMessage(), extraWord.getMessage());
     }
+
+    @Test
+    void parsesEventValuesWhenTheMarkersShareOneSpace() throws AtlasException {
+        // " /from " ends with the very space that " /to " begins with, so the
+        // start value has nowhere to run. This used to kill the whole process.
+        AtlasException noStart = assertThrows(AtlasException.class, () ->
+                Parser.parseTask("event ritual /from /to 4pm", Command.EVENT));
+        AtlasException nothingAtAll = assertThrows(AtlasException.class, () ->
+                Parser.parseTask("event /from /to 4pm", Command.EVENT));
+
+        assertEquals("Even Icarus launched from somewhere. Use: event <desc> /from <start> /to <end>",
+                noStart.getMessage());
+        assertEquals("Name your labour, mortal: event <desc> /from <start> /to <end>",
+                nothingAtAll.getMessage());
+    }
+
+    @Test
+    void rejectsARepeatedMarkerInsteadOfStoringItInTheValue() {
+        AtlasException twoStarts = assertThrows(AtlasException.class, () ->
+                Parser.parseTask("event ritual /from 2pm /from 3pm /to 5pm", Command.EVENT));
+        AtlasException twoEnds = assertThrows(AtlasException.class, () ->
+                Parser.parseTask("event ritual /from 2pm /to 3pm /to 5pm", Command.EVENT));
+        AtlasException twoDates = assertThrows(AtlasException.class, () ->
+                Parser.parseTask("deadline submit /by 2026-09-01 /by 2026-09-02", Command.DEADLINE));
+        AtlasException twoNumbers = assertThrows(AtlasException.class, () ->
+                Parser.parseClient("client add Bob /phone 1 /phone 2"));
+        AtlasException twoAddresses = assertThrows(AtlasException.class, () ->
+                Parser.parseClient("client add Bob /email a@b.com /email c@d.com"));
+
+        assertEquals("One departure is enough, mortal. Use: event <desc> /from <start> /to <end>",
+                twoStarts.getMessage());
+        assertEquals("One landing is enough, mortal. Use: event <desc> /from <start> /to <end>",
+                twoEnds.getMessage());
+        assertEquals("One reckoning is enough, mortal. Use: deadline <desc> /by <when>",
+                twoDates.getMessage());
+        assertEquals("One number is enough, mortal. Use: " + CLIENT_ADD_SYNTAX, twoNumbers.getMessage());
+        assertEquals("One address is enough, mortal. Use: " + CLIENT_ADD_SYNTAX, twoAddresses.getMessage());
+    }
+
+    @Test
+    void treatsLeadingWhitespaceAsInsignificant() {
+        assertEquals(Command.TODO, Parser.parseCommand(" todo read"));
+        assertEquals(Command.BYE, Parser.parseCommand("   bye"));
+        assertEquals(Command.CLIENT, Parser.parseCommand("\tclient list"));
+        assertNull(Parser.parseCommand("   "));
+    }
+
+    @Test
+    void rejectsAnEventWhoseStartAndEndAreTheSameMoment() throws AtlasException {
+        AtlasException sameSuffix = assertThrows(AtlasException.class, () ->
+                Parser.parseTask("event vigil /from 2pm /to 2pm", Command.EVENT));
+        AtlasException sameClockReadTwice = assertThrows(AtlasException.class, () ->
+                Parser.parseTask("event vigil /from 14:00 /to 2pm", Command.EVENT));
+        AtlasException sameCompactForm = assertThrows(AtlasException.class, () ->
+                Parser.parseTask("event vigil /from 0900 /to 9:00am", Command.EVENT));
+
+        assertTrue(sameSuffix.getMessage().startsWith("Time flows one way, mortal:"));
+        assertEquals(sameSuffix.getMessage(), sameClockReadTwice.getMessage());
+        assertEquals(sameSuffix.getMessage(), sameCompactForm.getMessage());
+
+        // A value that is not a clock time cannot be ordered, so it is accepted.
+        Event loose = assertInstanceOf(Event.class, Parser.parseTask(
+                "event dinner /from 7pm at marina /to 7pm at marina", Command.EVENT));
+        assertEquals("7pm at marina", loose.getFrom());
+
+        // An end after midnight is a real thing, so a later start is allowed.
+        Event overnight = assertInstanceOf(Event.class, Parser.parseTask(
+                "event vigil /from 11pm /to 1am", Command.EVENT));
+        assertEquals("11pm", overnight.getFrom());
+    }
 }

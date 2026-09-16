@@ -1,17 +1,21 @@
 package atlas.storage;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -271,6 +275,92 @@ public class StorageTest {
         assertEquals("keep todo", loaded.get(0).getDescription());
         assertEquals("keep deadline", loaded.get(1).getDescription());
         assertEquals("keep event", loaded.get(2).getDescription());
+    }
+
+    /**
+     * Returns the single backup file a test expects to find in the temporary
+     * directory.
+     *
+     * @return path of the backup file.
+     * @throws IOException if the directory cannot be listed.
+     */
+    private Path soleBackupFile() throws IOException {
+        try (Stream<Path> entries = Files.list(temporaryDirectory)) {
+            List<Path> backups = entries
+                    .filter(path -> path.getFileName().toString().contains(".corrupted-"))
+                    .toList();
+            assertEquals(1, backups.size());
+            return backups.get(0);
+        }
+    }
+
+    @Test
+    void describesSkippedRecordsAndKeepsTheFileBeforeTheNextSave() throws IOException, AtlasException {
+        Path storagePath = temporaryDirectory.resolve("atlas.txt");
+        String original = String.join(System.lineSeparator(),
+                "T | 0 | keep",
+                "not a valid task",
+                "C |  |  | ") + System.lineSeparator();
+        Files.writeString(storagePath, original);
+        Storage storage = new Storage(storagePath.toString());
+
+        AtlasData loaded = storage.load();
+
+        assertEquals(1, loaded.getTasks().size());
+        assertEquals("keep", loaded.getTasks().get(0).getDescription());
+        assertEquals(3, loaded.getWarnings().size());
+        assertTrue(loaded.getWarnings().get(0).startsWith("Atlas could not read 2 records from the data file"));
+        assertEquals("Line 2: too few fields", loaded.getWarnings().get(1));
+        assertEquals("Line 3: client name is empty", loaded.getWarnings().get(2));
+
+        storage.save(new ArrayList<>(), new ArrayList<>());
+
+        Path backup = soleBackupFile();
+        assertTrue(loaded.getWarnings().get(0).contains(backup.getFileName().toString()));
+        assertEquals(original, Files.readString(backup));
+        assertEquals("", Files.readString(storagePath));
+    }
+
+    @Test
+    void keepsAnUndecodableFileBeforeTheSaveThatReplacesIt() throws IOException, AtlasException {
+        Path storagePath = temporaryDirectory.resolve("atlas.txt");
+        byte[] undecodable = {(byte) 0xFF, (byte) 0xFE, 'T', ' ', '|'};
+        Files.write(storagePath, undecodable);
+        Storage storage = new Storage(storagePath.toString());
+
+        AtlasException exception = assertThrows(AtlasException.class, storage::load);
+
+        assertTrue(exception.getMessage().startsWith("The scroll of tasks could not be read:"));
+
+        storage.save(new ArrayList<>(List.of(new Todo("survivor"))), new ArrayList<>());
+
+        Path backup = soleBackupFile();
+        assertTrue(exception.getMessage().contains(backup.getFileName().toString()));
+        assertArrayEquals(undecodable, Files.readAllBytes(backup));
+        assertEquals(String.join(System.lineSeparator(), "T | 0 | survivor") + System.lineSeparator(),
+                Files.readString(storagePath));
+    }
+
+    @Test
+    void refusesToSaveWhenTheBackupCannotBeWritten() throws IOException, AtlasException {
+        Path dataDirectory = Files.createDirectories(temporaryDirectory.resolve("data"));
+        Path storagePath = dataDirectory.resolve("atlas.txt");
+        String original = "C |  |  | " + System.lineSeparator();
+        Files.writeString(storagePath, original);
+        Storage storage = new Storage(storagePath.toString());
+        AtlasData loaded = storage.load();
+        assertFalse(loaded.getWarnings().isEmpty());
+
+        Files.setPosixFilePermissions(dataDirectory, PosixFilePermissions.fromString("r-x------"));
+        try {
+            AtlasException exception = assertThrows(AtlasException.class, () ->
+                    storage.save(new ArrayList<>(List.of(new Todo("survivor"))), new ArrayList<>()));
+
+            assertTrue(exception.getMessage().startsWith("Atlas could not keep a copy of the data file"));
+            assertEquals(original, Files.readString(storagePath));
+        } finally {
+            Files.setPosixFilePermissions(dataDirectory, PosixFilePermissions.fromString("rwx------"));
+        }
     }
 
     @Test
