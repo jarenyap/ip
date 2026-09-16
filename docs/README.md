@@ -1,24 +1,42 @@
 # Atlas User Guide
 
-// Update the title above to match the actual product name
+![The Atlas chat window](Ui.png)
 
-// Product screenshot goes here
+Atlas is a desktop assistant for keeping track of tasks and clients. You type a
+command in the box at the bottom of the window, and Atlas answers in the chat.
 
-// Product intro goes here
+## Adding tasks
 
-## Adding deadlines
-
-// Describe the action and its outcome.
-
-// Give examples of usage
-
-Example: `keyword (optional arguments)`
-
-// A description of the expected outcome goes here
+Add a task with no date of its own:
 
 ```
-expected output
+todo buy groceries
 ```
+
+Add one with a due date, written as `yyyy-mm-dd`:
+
+```
+deadline submit CS2103T iP /by 2026-10-15
+```
+
+Add one with a start and an end:
+
+```
+event CS2101 pitch rehearsal /from Mon 2pm /to 4pm
+```
+
+Expected outcome:
+
+```
+Got it. I've added this task:
+  [D][ ] submit CS2103T iP (by: Oct 15 2026)
+Now you have 1 task in the list.
+```
+
+`list` shows every task in the order you added them. `mark <number>`,
+`unmark <number>` and `delete <number>` all use the numbers that `list` prints,
+and `find <keyword>` narrows the list to the tasks whose description contains
+the keyword.
 
 ## Managing clients
 
@@ -130,11 +148,4 @@ Atlas starts without that record, tells you which line it was, and keeps a copy
 of the original file beside it as `atlas.txt.corrupted-<date>` before writing
 anything, so records already in the file are never lost for good.
 
-## Feature ABC
 
-// Feature details
-
-
-## Feature XYZ
-
-// Feature details
