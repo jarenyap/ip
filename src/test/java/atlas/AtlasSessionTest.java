@@ -32,10 +32,17 @@ public class AtlasSessionTest {
     /** Records the replies a session produces so a test can inspect them. */
     private static final class Recorder implements AtlasSession.Output {
         private final List<String> messages = new ArrayList<>();
+        private final List<String> errors = new ArrayList<>();
 
         @Override
         public void speak(String message) {
             messages.add(message);
+        }
+
+        @Override
+        public void speakError(String message) {
+            messages.add(message);
+            errors.add(message);
         }
 
         @Override
@@ -51,6 +58,17 @@ public class AtlasSessionTest {
          */
         private boolean contains(String text) {
             return messages.stream().anyMatch(message -> message.contains(text));
+        }
+
+        /**
+         * Returns whether any reply that was reported as an error contains the
+         * given text.
+         *
+         * @param text text to look for.
+         * @return {@code true} when some error contains it.
+         */
+        private boolean hasError(String text) {
+            return errors.stream().anyMatch(message -> message.contains(text));
         }
     }
 
@@ -137,5 +155,42 @@ public class AtlasSessionTest {
 
         assertTrue(fixture.recorder.contains("Which labour shall I rank?"));
         assertEquals("T | 0 | buy milk | high", fixture.storedText().strip());
+    }
+
+    @Test
+    void reportsARejectedCommandAsAnErrorAndChangesNothing(@TempDir Path tempDir) throws IOException {
+        Fixture fixture = new Fixture(tempDir.resolve("atlas.txt"));
+        fixture.run("todo buy milk");
+
+        fixture.run("event ritual /from /to 4pm", "priority 1 URGENT");
+
+        assertTrue(fixture.recorder.hasError("Even Icarus launched from somewhere."));
+        assertTrue(fixture.recorder.hasError("The Fates know only"));
+        assertTrue(fixture.recorder.errors.stream().noneMatch(message -> message.contains("Got it")));
+        assertEquals(1, fixture.tasks.size());
+        assertEquals("T | 0 | buy milk", fixture.storedText().strip());
+    }
+
+    @Test
+    void acceptsACommandThatStartsWithWhitespace(@TempDir Path tempDir) {
+        Fixture fixture = new Fixture(tempDir.resolve("atlas.txt"));
+
+        fixture.run("  todo buy milk", "\tlist");
+
+        assertEquals(1, fixture.tasks.size());
+        assertEquals("buy milk", fixture.tasks.get(0).getDescription());
+        assertTrue(fixture.recorder.contains("1.[T][ ] buy milk"));
+    }
+
+    @Test
+    void keepsARejectedEventOutOfTheFileEntirely(@TempDir Path tempDir) throws IOException {
+        Fixture fixture = new Fixture(tempDir.resolve("atlas.txt"));
+        fixture.run("todo first");
+
+        fixture.run("event clash /from 2pm /to 2pm");
+
+        assertTrue(fixture.recorder.hasError("Time flows one way, mortal:"));
+        assertEquals(1, fixture.tasks.size());
+        assertEquals("T | 0 | first", fixture.storedText().strip());
     }
 }

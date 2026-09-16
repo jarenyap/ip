@@ -2,6 +2,7 @@ package atlas.gui;
 
 import atlas.AtlasSession;
 import atlas.command.Command;
+import atlas.command.Parser;
 import javafx.animation.PauseTransition;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
@@ -76,7 +77,7 @@ public class MainWindow extends AnchorPane {
             return;
         }
         addUserDialog(userText);
-        if (userText.equals(Command.BYE.getWord())) {
+        if (Parser.parseCommand(userText) == Command.BYE) {
             addAtlasDialog(AtlasSession.GOODBYE_MESSAGE);
             PauseTransition pause = new PauseTransition(Duration.millis(700));
             pause.setOnFinished(event -> stage.close());
@@ -85,7 +86,10 @@ public class MainWindow extends AnchorPane {
         }
         collector.clear();
         session.respond(userText);
-        addAtlasDialog(collector.getReply());
+        String reply = collector.getReply();
+        if (!reply.isEmpty()) {
+            addAtlasDialog(reply);
+        }
     }
 
     /**

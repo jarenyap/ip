@@ -103,6 +103,31 @@ Noted. I've cleared this task's rank:
 The level is stored with the task, so it survives a restart, and a task without
 a level is stored exactly as it was before this feature existed.
 
+## Errors Atlas reports
+
+Atlas answers every mistake with a message that says what was wrong, and never
+changes your data when it rejects a command. A few cases are worth knowing:
+
+- A missing part: `deadline` without `/by`, `event` without `/from` or `/to`, or
+  a task command with no description. Each reply shows the syntax to use.
+- A marker written twice, such as `client add Bob /phone 1 /phone 2`. Atlas
+  rejects the command rather than storing the first number with the second
+  marker stuck to it. The same applies to `/from`, `/to` and `/email`.
+- An event that starts and ends at the same moment, such as
+  `event vigil /from 2pm /to 2pm`. Atlas compares the two values only when both
+  are plain clock times (`2pm`, `2:30pm`, `14:00` or `0900`), so free text such
+  as `/from 7pm at marina` is left alone. An end later than the start is always
+  accepted, because an event may run past midnight.
+- Spaces before a command are ignored, so an accidentally indented line still
+  works. Mistakes are shown in a bubble bordered with `!` marks, so they stand
+  out from Atlas's ordinary replies.
+
+If the data file is missing it is created on first use, so an empty file is
+normal. If a file cannot be read, or holds a record Atlas cannot make sense of,
+Atlas starts without that record, tells you which line it was, and keeps a copy
+of the original file beside it as `atlas.txt.corrupted-<date>` before writing
+anything, so records already in the file are never lost for good.
+
 ## Feature ABC
 
 // Feature details

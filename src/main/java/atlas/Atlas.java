@@ -4,6 +4,7 @@ import java.util.Scanner;
 
 import atlas.client.ClientList;
 import atlas.command.Command;
+import atlas.command.Parser;
 import atlas.storage.AtlasData;
 import atlas.storage.Storage;
 import atlas.task.TaskList;
@@ -32,10 +33,13 @@ public class Atlas {
         ClientList clients;
         try {
             AtlasData data = storage.load();
+            for (String warning : data.getWarnings()) {
+                ui.speakError(warning);
+            }
             tasks = new TaskList(data.getTasks());
             clients = new ClientList(data.getClients());
         } catch (AtlasException e) {
-            ui.speak(e.getMessage());
+            ui.speakError(e.getMessage());
             tasks = new TaskList();
             clients = new ClientList();
         }
@@ -43,7 +47,10 @@ public class Atlas {
         AtlasSession session = new AtlasSession(storage, tasks, clients, ui);
         String line = ui.readLine();
 
-        while (!line.equals(Command.BYE.getWord())) {
+        // The loop stops on bye or at the end of the input, so a scripted session
+        // that runs out of lines exits cleanly instead of crashing, and "bye "
+        // with a trailing space exits like "bye" does.
+        while (line != null && Parser.parseCommand(line) != Command.BYE) {
             session.respond(line);
             line = ui.readLine();
         }

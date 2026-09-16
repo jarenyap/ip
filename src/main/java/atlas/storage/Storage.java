@@ -5,6 +5,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,8 +42,20 @@ import atlas.task.Todo;
  */
 public class Storage {
 
+    /** Pattern for the timestamp added to the name of a data-file backup. */
+    private static final DateTimeFormatter BACKUP_STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+
     /** Location of the file used to persist Atlas tasks and clients. */
     private final Path filePath;
+
+    /**
+     * Where the original file is copied when a load could not use it in full, or
+     * null while no copy is owed.
+     */
+    private Path backupPath;
+
+    /** Whether the original file still has to be copied before it is overwritten. */
+    private boolean backupPending;
 
     /**
      * Creates a storage object that uses the specified file.
@@ -55,10 +69,16 @@ public class Storage {
     /**
      * Loads tasks and clients from the data file.
      * Returns both lists empty when the file does not exist yet (first run).
-     * Lines that cannot be parsed are skipped with a warning, so one corrupted
-     * line does not destroy the rest of the data.
+     * A line that cannot be parsed is skipped and described in the returned
+     * warnings, so one corrupted line does not destroy the rest of the data and
+     * the user is still told which records were left out.
      *
-     * @return the tasks and clients successfully loaded from the file.
+     * <p>Whenever a load cannot use every record, the file is copied aside
+     * before it is next overwritten, so records that Atlas could not read are
+     * never the only copy that is lost.
+     *
+     * @return the tasks and clients read from the file, with a description of
+     *     any record that could not be read.
      * @throws AtlasException if the file exists but cannot be read.
      */
     public AtlasData load() throws AtlasException {
@@ -71,8 +91,15 @@ public class Storage {
         try {
             lines = Files.readAllLines(filePath);
         } catch (IOException e) {
-            throw new AtlasException("The scroll of tasks could not be read: " + e.getMessage());
+            // The file exists but cannot be decoded. Atlas carries on with an
+            // empty list, so a copy has to be kept before the next save
+            // overwrites what may be the user's only records.
+            String backupName = scheduleBackup();
+            throw new AtlasException("The scroll of tasks could not be read: " + e.getMessage()
+                    + " Atlas starts with an empty list, and the unreadable file is kept as "
+                    + backupName + " before the next change is saved.");
         }
+        ArrayList<String> skipped = new ArrayList<>();
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i).trim();
             if (line.isEmpty()) {
@@ -81,15 +108,29 @@ public class Storage {
             try {
                 addRecord(line, tasks, clients);
             } catch (AtlasException e) {
-                System.out.println("Atlas skips a corrupted line " + (i + 1) + ": " + e.getMessage());
+                skipped.add("Line " + (i + 1) + ": " + e.getMessage());
             }
         }
-        return new AtlasData(tasks, clients);
+        if (skipped.isEmpty()) {
+            return new AtlasData(tasks, clients);
+        }
+        String backupName = scheduleBackup();
+        ArrayList<String> warnings = new ArrayList<>();
+        warnings.add("Atlas could not read " + skipped.size() + " record"
+                + (skipped.size() == 1 ? "" : "s") + " from the data file, so "
+                + (skipped.size() == 1 ? "it is" : "they are") + " left out of this session. "
+                + "The file is kept as " + backupName + " before the next change is saved.");
+        warnings.addAll(skipped);
+        return new AtlasData(tasks, clients, warnings);
     }
 
     /**
      * Saves every task and client to the data file, creating the data folder
      * first if it does not exist. Tasks are written before clients.
+     *
+     * <p>Before the file is overwritten, any copy owed from an incomplete load
+     * is written beside it, and the save is abandoned if that copy cannot be
+     * made, so an unreadable file is never destroyed by the save that follows.
      *
      * @param tasks tasks to save.
      * @param clients clients to save.
@@ -104,6 +145,7 @@ public class Storage {
         if (!content.isEmpty()) {
             content = content + System.lineSeparator();
         }
+        keepOriginalIfUnreadable();
         try {
             if (filePath.getParent() != null) {
                 Files.createDirectories(filePath.getParent());
@@ -111,6 +153,42 @@ public class Storage {
             Files.writeString(filePath, content);
         } catch (IOException e) {
             throw new AtlasException("The scroll of tasks could not be saved: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Decides where the data file is copied before it is next overwritten, for a
+     * load that could not use every record. The decision is taken at load time so
+     * that the warning shown to the user can name the copy exactly.
+     *
+     * @return the file name the copy will be written under.
+     */
+    private String scheduleBackup() {
+        if (backupPath == null) {
+            String stamp = LocalDateTime.now().format(BACKUP_STAMP);
+            backupPath = filePath.resolveSibling(filePath.getFileName() + ".corrupted-" + stamp);
+            backupPending = true;
+        }
+        return backupPath.getFileName().toString();
+    }
+
+    /**
+     * Copies the data file aside before it is overwritten, when the last load
+     * could not use all of it. Nothing is saved if the copy fails: losing records
+     * silently would be worse than reporting a save that did not happen.
+     *
+     * @throws AtlasException if the copy cannot be written.
+     */
+    private void keepOriginalIfUnreadable() throws AtlasException {
+        if (!backupPending || !Files.exists(filePath)) {
+            return;
+        }
+        try {
+            Files.copy(filePath, backupPath);
+            backupPending = false;
+        } catch (IOException e) {
+            throw new AtlasException("Atlas could not keep a copy of the data file, so nothing was "
+                    + "saved: " + e.getMessage());
         }
     }
 

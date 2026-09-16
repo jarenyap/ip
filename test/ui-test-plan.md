@@ -4,7 +4,8 @@ Run with: `test/ui-test.sh` (from the repo root).
 
 Each case has these files under `test/cases/`:
 
-- `<name>.in` — commands fed to Atlas (must end with `bye`)
+- `<name>.in` — commands fed to Atlas. Most cases end with `bye`; a case may
+  deliberately omit it, since the case then proves end of input exits cleanly
 - `<name>.expected` — lines that must appear in the output (substring match,
   mirroring the course grading scripts; tolerant of bubble formatting).
   Indexed list lines (e.g. `1.[T][ ] task`, `1.[C] Bob`) only occur in listing
@@ -13,6 +14,9 @@ Each case has these files under `test/cases/`:
 - `<name>.in2` (optional) — a second session run in the same working
   directory after the first, used to test persistence across restarts.
   Expected substrings cover both runs' combined output.
+- `<name>.setup/` (optional) — files copied into the working directory before
+  the first run, keeping their layout, for cases that need a starting state no
+  Atlas command can produce (e.g. a data file holding a corrupt record).
 
 Each case runs in its own temporary working directory, so Level-7 data files
 are isolated and every case starts with a fresh task list.
@@ -139,6 +143,46 @@ follows, which is what proves the session continues after an unknown word.
 | `priority-set-list` | C-Priority: rank all three task types, list, find, clear one level, re-rank another | `todo buy milk`, `deadline submit report /by 2019-10-15`, `event project meeting /from 2pm /to 4pm`, `priority 1 high`, `priority 2 low`, `priority 3 medium`, `list`, `find milk`, `priority 3 none`, `list`, `priority 2 high`, `list`, `bye` | Ranked echoes with `[HIGH]`, `[LOW]` and `[MEDIUM]`; indexed list and find rows carrying the tags; the cleared row back to `3.[E][ ]`; the re-ranked row `2.[D][ ][HIGH]` |
 | `priority-errors` | C-Priority: every malformed priority command is rejected and changes nothing | bare `priority`, `priority 0 high`, `priority abc high`, `todo only task`, `priority 1`, `priority 1 ` (trailing space), `priority 1 urgent`, `priority 1 high extra`, `priority 1 none`, `priority high 1`, `priority 2 low`, `list`, `bye` | Full missing-number, pantheon, missing-level and Fates messages; the cleared-rank reply for `none`; `1.[T][ ] only task` still unranked after every rejection |
 | `priority-persistence` | C-Priority: levels survive a restart with tasks and clients in one file, including a level set as the last command of a session | run 1: add todo/deadline/event, `priority 1 high`, `priority 3 low`, `client add Bob /phone 91234567`, `priority 2 medium`, `bye`; run 2: `list`, `client list`, `priority 1 none`, `list`, `bye` | Run 2 lists run 1's levels loaded from disk (`[HIGH]`, `[MEDIUM]`, `[LOW]`) and the client alongside them, so a level kept only in memory fails the case; then the cleared task is back to `1.[T][ ] buy milk` |
+| `event-marker-overlap` | A malformed event whose markers share one space is reported, not fatal | `event ritual /from /to 4pm`, `event /from /to 4pm`, `list`, `bye` | Full Icarus-from message for the missing start; full `Name your labour` message for the missing description; the list is still empty |
+| `duplicate-markers` | A marker repeated in one command is rejected, not swallowed into a value | `todo seed`, `event a /from 1pm /from 2pm /to 3pm`, `event b /from 1pm /to 2pm /to 3pm`, `deadline d /by 2026-09-01 /by 2026-09-02`, `client add Bob /phone 1 /phone 2`, `client add Ann /email a@b.com /email c@d.com`, `list`, `client list`, `bye` | The five full duplicate messages; only the seeded task exists; the client list is still empty |
+| `whitespace-slack` | Leading whitespace is insignificant, and `bye` with surrounding spaces exits | ` todo padded` (indented), `  mark 1`, `  list`, ` bye` | `1.[T][X] padded`, which proves the indented commands ran and the indented `bye` exited |
+| `no-bye-exit` | End of input exits cleanly with the goodbye and exit code 0 | `todo survive`, `list` (no `bye` line at all) | `1.[T][ ] survive` and the goodbye, with the session exiting 0 instead of crashing |
+| `corrupt-data-file` | A record Atlas cannot parse is reported, left out, and the file copied aside before the overwrite | run 1, started from `corrupt-data-file.setup/` holding one good record and one unparsable line: `list`, `todo survivor`, `bye`; run 2: `list`, `bye` | The summary warning, `Line 2: too few fields`, the `.corrupted-` copy name in the warning, the good record kept, the new task added, and both tasks present in run 2, which proves the save after the backup worked |
+
+## A-MoreErrorHandling note
+
+Atlas now survives and explains every malformed command and unreadable data file
+it can meet in normal use:
+
+- The ` /from ` and ` /to ` markers can share one space, as in
+  `event x /from /to y`. Ending the start value at that shared space ran the
+  slice backwards and killed the process with `StringIndexOutOfBoundsException`;
+  the value now ends inside the marker at the earliest, so the missing start is
+  reported as the ordinary Icarus message.
+- A marker repeated in one command is rejected instead of being absorbed into
+  the previous value, which used to store `2026-09-01 /by 2026-09-02` as a date
+  field. This applies to `/from`, `/to`, `/by`, `/phone` and `/email`.
+- An event whose start and end name the same moment is rejected. Both values
+  must be plain clock times (`2pm`, `2:30pm`, `14:00`, `0900`) for the check to
+  apply, because free text such as `7pm at marina` cannot be ordered. A later
+  end is accepted, since an event may run past midnight.
+- End of input (Ctrl+D, or a script that runs out of lines) exits with the
+  goodbye instead of throwing `NoSuchElementException`. `bye ` with a trailing
+  space and an indented command both work now, because the command is matched
+  after its leading whitespace is dropped.
+- Errors are reported through `Output.speakError`, which the console `Ui` draws
+  in a bubble bordered with `!` marks, so a problem is told apart from an
+  ordinary reply at a glance. The error text itself is byte-identical to before.
+- A data file that cannot be read, or that holds records Atlas cannot parse, is
+  reported through that same sink rather than printed to the console, where the
+  GUI never showed it. The original file is copied to
+  `<file>.corrupted-<timestamp>` before the next save overwrites it, and the
+  save is abandoned if that copy cannot be written.
+
+The only behaviour change among the earlier cases is cosmetic: every case whose
+output contains an error message now shows those bubbles with `!` borders. The
+message lines are unchanged, and the data files written by all previous cases
+are byte-identical.
 
 ## Harness limitation
 
@@ -148,6 +192,15 @@ that a rejected command left the stored state unchanged. Where that proof
 matters, the case has to add a follow-up command whose reply differs when the
 state is wrong (for example deleting the row that should not exist and
 expecting the not-found message).
+
+The harness also cannot read the data file or the directory around it, so the
+copy that `A-MoreErrorHandling` makes of an unreadable file is proven by
+`StorageTest` rather than by a case; a case can only assert that the warning
+names the copy. The other proofs the harness cannot express live in
+`AtlasSessionTest` and `StorageTest`: that a rejected command leaves the file
+untouched, that errors arrive through `Output.speakError` rather than
+`Output.speak`, and that a failed backup abandons the save instead of
+destroying the file.
 
 ## Maintenance rule
 

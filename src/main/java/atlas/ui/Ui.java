@@ -39,10 +39,31 @@ public class Ui implements AtlasSession.Output {
      */
     @Override
     public void speak(String message) {
-        String border = "─".repeat(message.length() + 2);
-        System.out.println("╭" + border + "╮");
+        printBubble(message, '─');
+    }
+
+    /**
+     * Prints an error inside a bubble bordered with exclamation marks, so a
+     * problem stands out from Atlas's ordinary replies.
+     *
+     * @param message error message to display.
+     */
+    @Override
+    public void speakError(String message) {
+        printBubble(message, '!');
+    }
+
+    /**
+     * Prints one speech bubble whose border is drawn with the given character.
+     *
+     * @param message message to display.
+     * @param border character used to draw the top and bottom border.
+     */
+    private void printBubble(String message, char border) {
+        String rule = String.valueOf(border).repeat(message.length() + 2);
+        System.out.println("╭" + rule + "╮");
         System.out.println("│ " + message + " │");
-        System.out.println("╰" + border + "╯");
+        System.out.println("╰" + rule + "╯");
     }
 
     /**
@@ -58,9 +79,10 @@ public class Ui implements AtlasSession.Output {
     /**
      * Reads the next command line from the user.
      *
-     * @return next line supplied by the user.
+     * @return the next line supplied by the user, or {@code null} when the input
+     *     has ended, e.g. Ctrl+D on a terminal or a script that ran out of lines.
      */
     public String readLine() {
-        return in.nextLine();
+        return in.hasNextLine() ? in.nextLine() : null;
     }
 }

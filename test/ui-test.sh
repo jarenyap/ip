@@ -32,6 +32,13 @@ for input in "$REPO_ROOT"/test/cases/*.in; do
     # Run each case in its own temp working dir so Level-7 data files are
     # isolated and every case starts with a fresh task list.
     RUN_DIR=$(mktemp -d "$WORK/case.XXXXXX")
+    # A case that needs files in place before it starts, e.g. a data file that
+    # cannot be read, puts them in test/cases/<name>.setup/ and they are copied
+    # into the run directory first, keeping their layout.
+    setup_dir="$REPO_ROOT/test/cases/$name.setup"
+    if [ -d "$setup_dir" ]; then
+        cp -R "$setup_dir/." "$RUN_DIR/"
+    fi
     output=$(cd "$RUN_DIR" && java -cp "$BIN" atlas.Atlas < "$input" 2>&1)
     status=$?
     # A second input file (<name>.in2) runs again in the same working dir to

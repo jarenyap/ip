@@ -36,11 +36,12 @@ public class Main extends Application {
             Storage storage = new Storage(AtlasSession.DEFAULT_DATA_FILE);
             TaskList tasks;
             ClientList clients;
-            String warning = null;
+            String warning;
             try {
                 AtlasData data = storage.load();
                 tasks = new TaskList(data.getTasks());
                 clients = new ClientList(data.getClients());
+                warning = data.getWarnings().isEmpty() ? null : String.join("\n", data.getWarnings());
             } catch (AtlasException e) {
                 warning = e.getMessage();
                 tasks = new TaskList();

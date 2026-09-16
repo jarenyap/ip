@@ -48,6 +48,17 @@ public class AtlasSession {
 
         /** Reports a plain line of output, e.g. one task listing row. */
         void print(String text);
+
+        /**
+         * Reports a message that explains an error, so a front-end can show it
+         * in a style that catches the user's attention. The default keeps every
+         * existing sink working unchanged.
+         *
+         * @param message the error message to report.
+         */
+        default void speakError(String message) {
+            speak(message);
+        }
     }
 
     private final Storage storage;
@@ -75,9 +86,13 @@ public class AtlasSession {
      * client list as needed, and reports the reply through this session's
      * output sink.
      *
-     * @param line the full command line typed by the user.
+     * @param rawLine the full command line typed by the user.
      */
-    public void respond(String line) {
+    public void respond(String rawLine) {
+        // Leading whitespace is insignificant, so " list" is still the list
+        // command. Trailing whitespace keeps its meaning, because a marker's
+        // closing space is what proves a value was left empty.
+        String line = rawLine.stripLeading();
         try {
             Command cmd = Parser.parseCommand(line);
             if (cmd == null) {
@@ -175,7 +190,7 @@ public class AtlasSession {
                     throw new AssertionError("Every command is handled above");
             }
         } catch (AtlasException e) {
-            output.speak(e.getMessage());
+            output.speakError(e.getMessage());
         }
     }
 
