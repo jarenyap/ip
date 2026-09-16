@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -343,6 +344,12 @@ public class StorageTest {
 
     @Test
     void refusesToSaveWhenTheBackupCannotBeWritten() throws IOException, AtlasException {
+        // A folder that cannot be written to is how the copy is made to fail,
+        // and that is a POSIX idea: on a platform without POSIX permissions the
+        // situation cannot arise, so the test reports itself as skipped there
+        // rather than failing the build.
+        assumeTrue(Files.getFileStore(temporaryDirectory).supportsFileAttributeView("posix"),
+                "this platform has no POSIX file permissions to deny");
         Path dataDirectory = Files.createDirectories(temporaryDirectory.resolve("data"));
         Path storagePath = dataDirectory.resolve("atlas.txt");
         String original = "C |  |  | " + System.lineSeparator();
