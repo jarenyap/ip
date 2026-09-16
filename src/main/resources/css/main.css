@@ -29,7 +29,6 @@
     -fx-atlas-field: #fffdf8;          /* command box fill */
     -fx-atlas-field-line: #d8d2c8;     /* command box border */
     -fx-atlas-muted: #8a8478;          /* prompt text */
-    -fx-atlas-watermark: rgba(0, 49, 83, 0.08);
     -fx-atlas-focus-faint: rgba(46, 100, 150, 0.2);
     -fx-atlas-error-bg: #fdf3f1;       /* error bubble fill */
     -fx-atlas-error-line: #a3312a;     /* error bubble frame */
@@ -41,21 +40,27 @@
 /* --- Header --- */
 .header-label {
     -fx-background-color: -fx-atlas-prussian;
+    -fx-background-image: url('../images/atlas-header-background.png');
+    -fx-background-repeat: no-repeat;
+    -fx-background-position: center center;
+    -fx-background-size: cover;
     -fx-text-fill: -fx-atlas-cream;
     -fx-font-family: 'Cinzel Decorative';
     -fx-font-weight: bold;
-    -fx-font-size: 22px;
+    -fx-font-size: 40px;
     -fx-alignment: center;
     -fx-border-color: transparent transparent -fx-atlas-deep transparent;
     -fx-border-width: 0 0 2px 0;
 }
 
-/* --- Background watermark --- */
-.watermark {
-    -fx-font-family: 'Cinzel Decorative';
-    -fx-font-size: 110px;
-    -fx-text-fill: -fx-atlas-watermark;
-    -fx-alignment: center;
+/* Fixed artwork behind the conversation and input row. Cover preserves its
+   proportions; bottom-right anchoring favours the mountains and column. */
+.chat-background {
+    -fx-background-color: -fx-atlas-cream;
+    -fx-background-image: url('../images/atlas-chat-background.png');
+    -fx-background-repeat: no-repeat;
+    -fx-background-position: right bottom;
+    -fx-background-size: cover;
 }
 
 /* --- Chat canvas --- */

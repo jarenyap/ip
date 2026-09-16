@@ -1,10 +1,10 @@
-/* Chat bubbles. Every colour comes from the palette declared
+/* Chat bubbles and their avatars. Every colour comes from the palette declared
    on .root in main.css, which JavaFX resolves by walking up from the bubble to
    the window root. The bubble chrome lives on the DialogBox StackPane; the Text
    child wraps (a plain Text node never ellipsizes, so full messages always
    show). */
 .bubble-text {
-    -fx-font-size: 18px;
+    -fx-font-size: 21px;
 }
 
 .label {
@@ -50,4 +50,19 @@
 
 .error-label .bubble-text {
     -fx-fill: -fx-atlas-error-ink;
+}
+
+/* --- Avatars ---
+   A messaging app puts the picture beside the bubble, against the corner the
+   bubble's tail points at, so the avatar is first in Atlas's rows and last in
+   the user's. The square below is the one place the avatar's size is stated:
+   DialogBox fits the picture to it and clips it to a circle, and the fixed
+   height is what stops a picture stretching beside a tall multi-line bubble. */
+.avatar {
+    -fx-min-width: 44px;
+    -fx-min-height: 44px;
+    -fx-pref-width: 44px;
+    -fx-pref-height: 44px;
+    -fx-max-width: 44px;
+    -fx-max-height: 44px;
 }
