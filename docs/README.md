@@ -120,7 +120,9 @@ changes your data when it rejects a command. A few cases are worth knowing:
   accepted, because an event may run past midnight.
 - Spaces before a command are ignored, so an accidentally indented line still
   works. Mistakes are shown in a bubble bordered with `!` marks, so they stand
-  out from Atlas's ordinary replies.
+  out from Atlas's ordinary replies. In the window, the same mistakes appear in
+  a bubble with a red frame, so a rejected command is easy to spot in a long
+  conversation.
 
 If the data file is missing it is created on first use, so an empty file is
 normal. If a file cannot be read, or holds a record Atlas cannot make sense of,

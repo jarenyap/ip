@@ -33,17 +33,16 @@ public class MainWindow extends AnchorPane {
     private Stage stage;
 
     /**
-     * Runs after all @FXML fields are injected. Follows the newest message
-     * only while the user is already at the bottom, so reading older
-     * messages with the mouse wheel is never fought.
+     * Runs after all @FXML fields are injected. Keeps the newest message in
+     * view: the chat is scrolled to the bottom whenever its content grows, so a
+     * reply never appears below the visible area. The height listener fires
+     * after the layout pass that made room for the message, which is why the
+     * scroll is set here rather than in the code that adds a bubble. Resizing a
+     * window that has been scrolled up returns to the newest message as well.
      */
     @FXML
     private void initialize() {
-        dialogContainer.heightProperty().addListener((obs, oldHeight, newHeight) -> {
-            if (scrollPane.getVvalue() >= 1.0 - 1e-3) {
-                scrollPane.setVvalue(1.0);
-            }
-        });
+        dialogContainer.heightProperty().addListener((obs, oldHeight, newHeight) -> scrollPane.setVvalue(1.0));
     }
 
     /**
@@ -88,7 +87,11 @@ public class MainWindow extends AnchorPane {
         session.respond(userText);
         String reply = collector.getReply();
         if (!reply.isEmpty()) {
-            addAtlasDialog(reply);
+            if (collector.isError()) {
+                addErrorDialog(reply);
+            } else {
+                addAtlasDialog(reply);
+            }
         }
     }
 
@@ -108,5 +111,23 @@ public class MainWindow extends AnchorPane {
      */
     private void addAtlasDialog(String text) {
         dialogContainer.getChildren().add(DialogBox.getAtlasDialog(text));
+    }
+
+    /**
+     * Appends one Atlas error bubble to the chat, so a rejected command is
+     * easier to tell apart from a normal reply.
+     *
+     * @param text the error message to show.
+     */
+    private void addErrorDialog(String text) {
+        dialogContainer.getChildren().add(DialogBox.getErrorDialog(text));
+    }
+
+    /**
+     * Puts the caret in the command box, so the window is ready to be typed in
+     * the moment it appears. Call this after the window is shown.
+     */
+    public void focusInput() {
+        userInput.requestFocus();
     }
 }
