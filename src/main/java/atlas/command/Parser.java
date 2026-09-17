@@ -1,5 +1,6 @@
 package atlas.command;
 
+import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
@@ -45,6 +46,17 @@ public class Parser {
     private static final Pattern COLON_TIME = Pattern.compile("(\\d{1,2}):(\\d{2})");
     /** Clock time written as three or four digits only, e.g. "1400" or "900". */
     private static final Pattern COMPACT_TIME = Pattern.compile("\\d{3,4}");
+
+    /** Length of a date written as yyyy-mm-dd. */
+    private static final int ISO_DATE_LENGTH = 10;
+
+    /**
+     * A date at the start of a value, written year first as yyyy-mm-dd or day
+     * first as d/m/yyyy or d-m/yyyy. Only the date is matched, so a value such
+     * as "18/9/2026 1000am" leaves its clock time to be read separately.
+     */
+    private static final Pattern LEADING_DATE = Pattern.compile(
+            "^(\\d{4}-\\d{2}-\\d{2}|\\d{1,2}/\\d{1,2}/\\d{4}|\\d{1,2}-\\d{1,2}-\\d{4})");
 
     /** Message shown when a priority command carries no task number. */
     private static final String MISSING_PRIORITY_NUMBER_MESSAGE =
@@ -256,8 +268,8 @@ public class Parser {
 
     /**
      * Returns the minute of the day a plain clock time stands for, or null when
-     * the text is not a clock time. Accepted forms are "2pm", "2 pm", "2:30pm",
-     * "14:00" and "1400".
+     * the text is not a clock time. Accepted forms are "2pm", "2 pm", "10am",
+     * "2:30pm", "1000am", "14:00" and "1400".
      *
      * <p>Free text such as "7pm at marina" is not a clock time, so callers read a
      * null result as "these two values cannot be compared" rather than as an error.
@@ -268,40 +280,85 @@ public class Parser {
      */
     private static Integer minuteOfDayOrNull(String text) {
         String value = text.trim().toLowerCase(Locale.ROOT);
-        String suffix = "";
-        if (value.endsWith("am") || value.endsWith("pm")) {
-            suffix = value.substring(value.length() - 2);
-            value = value.substring(0, value.length() - 2).trim();
-        }
+        String suffix = meridianSuffix(value);
+        String clock = suffix.isEmpty() ? value : value.substring(0, value.length() - 2).trim();
+        return minuteOfDay(clock, suffix);
+    }
+
+    /**
+     * Returns the am/pm marker that ends some text, if the text carries one.
+     *
+     * @param value text already trimmed and lower-cased.
+     * @return "am", "pm", or an empty string when the text carries no marker.
+     */
+    private static String meridianSuffix(String value) {
+        return value.endsWith("am") || value.endsWith("pm") ? value.substring(value.length() - 2) : "";
+    }
+
+    /**
+     * Reads a clock time written without its am/pm marker, e.g. "14:00", "1400"
+     * or "2" alongside a "pm" suffix.
+     *
+     * @param clock text of the clock time, without an am/pm marker.
+     * @param suffix the marker the text carried, or an empty string.
+     * @return minutes since midnight, or {@code null} when the text is not a
+     *     clock time.
+     */
+    private static Integer minuteOfDay(String clock, String suffix) {
         int hours;
         int minutes;
-        Matcher colon = COLON_TIME.matcher(value);
+        Matcher colon = COLON_TIME.matcher(clock);
         if (colon.matches()) {
             hours = Integer.parseInt(colon.group(1));
             minutes = Integer.parseInt(colon.group(2));
             if (minutes > 59) {
                 return null;
             }
-        } else if (suffix.isEmpty() && COMPACT_TIME.matcher(value).matches()) {
+        } else if (suffix.isEmpty() && COMPACT_TIME.matcher(clock).matches()) {
             // "1400" reads as 14:00, but a bare "2" or "230" is too ambiguous to read.
-            String digits = value.length() == 3 ? "0" + value : value;
+            String digits = clock.length() == 3 ? "0" + clock : clock;
             hours = Integer.parseInt(digits.substring(0, 2));
             minutes = Integer.parseInt(digits.substring(2));
             if (minutes > 59) {
                 return null;
             }
-        } else if (suffix.isEmpty() || !isAllDigits(value)) {
+        } else if (suffix.isEmpty() || !isAllDigits(clock)) {
             return null;
-        } else {
-            hours = Integer.parseInt(value);
+        } else if (clock.length() <= 2) {
+            hours = Integer.parseInt(clock);
             minutes = 0;
+        } else {
+            // A 12-hour clock written compactly, e.g. "1000am" or "1030pm".
+            String digits = clock.length() == 3 ? "0" + clock : clock;
+            hours = Integer.parseInt(digits.substring(0, 2));
+            minutes = Integer.parseInt(digits.substring(2));
+            if (minutes > 59) {
+                return null;
+            }
         }
+        return applyMeridian(hours, minutes, suffix);
+    }
+
+    /**
+     * Converts an hour read from either clock into minutes since midnight: an
+     * hour that carries an am/pm marker is a 12-hour hour, and one that does not
+     * is a 24-hour hour.
+     *
+     * @param hours hour read from the text.
+     * @param minutes minutes read from the text.
+     * @param suffix the am/pm marker the text carried, or an empty string.
+     * @return minutes since midnight, or {@code null} when the hour is out of
+     *     range for the clock it was written on.
+     */
+    private static Integer applyMeridian(int hours, int minutes, String suffix) {
         if (!suffix.isEmpty()) {
             if (hours < 1 || hours > 12) {
                 return null;
             }
-            hours = hours % 12 + (suffix.equals("pm") ? 12 : 0);
-        } else if (hours > 23) {
+            int converted = hours % 12 + (suffix.equals("pm") ? 12 : 0);
+            return converted * 60 + minutes;
+        }
+        if (hours > 23) {
             return null;
         }
         return hours * 60 + minutes;
@@ -468,87 +525,313 @@ public class Parser {
      */
     public static Task parseTask(String line, Command cmd) throws AtlasException {
         int prefixLen = cmd.getWord().length() + 1; // word plus the separating space, e.g. "todo "
-        switch (cmd) {
-            case TODO: {
-                String desc = line.length() == cmd.getWord().length() ? "" : line.substring(prefixLen);
-                if (desc.trim().isEmpty()) {
-                    throw new AtlasException("Name your labour, mortal: todo <desc>");
-                }
-                return new Todo(desc);
-            }
-            case DEADLINE: {
-                if (countMarkers(line, BY_MARKER) > 1) {
-                    throw new AtlasException("One reckoning is enough, mortal. Use: " + DEADLINE_SYNTAX);
-                }
-                int byPos = line.indexOf(BY_MARKER);
-                if (byPos == -1) {
-                    throw new AtlasException("The Fates weave on schedule. Use: " + DEADLINE_SYNTAX);
-                }
-                String desc = byPos <= prefixLen ? "" : line.substring(prefixLen, byPos);
-                if (desc.trim().isEmpty()) {
-                    throw new AtlasException("Name your labour, mortal: " + DEADLINE_SYNTAX);
-                }
-                assert byPos > prefixLen : "byPos must point past the command prefix";
-                String byText = line.substring(byPos + BY_MARKER.length());
-                if (byText.trim().isEmpty()) {
-                    throw new AtlasException("The Fates weave on schedule. Use: " + DEADLINE_SYNTAX);
-                }
-                LocalDate by;
-                try {
-                    by = LocalDate.parse(byText.trim());
-                } catch (DateTimeParseException e) {
-                    throw new AtlasException("The Fates cannot read that date, mortal. "
-                            + "Use: deadline <desc> /by yyyy-mm-dd");
-                }
-                return new Deadline(desc, by);
-            }
-            case EVENT: {
-                if (countMarkers(line, FROM_MARKER) > 1) {
-                    throw new AtlasException("One departure is enough, mortal. Use: " + EVENT_SYNTAX);
-                }
-                if (countMarkers(line, TO_MARKER) > 1) {
-                    throw new AtlasException("One landing is enough, mortal. Use: " + EVENT_SYNTAX);
-                }
-                int fromPos = line.indexOf(FROM_MARKER);
-                if (fromPos == -1) {
-                    throw new AtlasException("Even Icarus launched from somewhere. "
-                            + "Use: " + EVENT_SYNTAX);
-                }
-                int toPos = line.indexOf(TO_MARKER, fromPos);
-                if (toPos == -1) {
-                    throw new AtlasException("Icarus never planned a landing either. "
-                            + "Use: " + EVENT_SYNTAX);
-                }
-                String desc = fromPos <= prefixLen ? "" : line.substring(prefixLen, fromPos);
-                if (desc.trim().isEmpty()) {
-                    throw new AtlasException("Name your labour, mortal: " + EVENT_SYNTAX);
-                }
-                assert fromPos > prefixLen : "fromPos must point past the command prefix";
-                assert toPos > fromPos : "/to must come after /from";
-                int fromStart = fromPos + FROM_MARKER.length();
-                // The space that ends " /from " can also begin " /to ", as in
-                // "event x /from /to y". Ending the value at that shared space
-                // would place the end before the value began, so the end is
-                // never allowed to fall inside the marker itself.
-                String from = line.substring(fromStart, Math.max(toPos, fromStart));
-                if (from.trim().isEmpty()) {
-                    throw new AtlasException("Even Icarus launched from somewhere. "
-                            + "Use: " + EVENT_SYNTAX);
-                }
-                String to = line.substring(toPos + TO_MARKER.length());
-                if (to.trim().isEmpty()) {
-                    throw new AtlasException("Icarus never planned a landing either. "
-                            + "Use: " + EVENT_SYNTAX);
-                }
-                Integer fromMinutes = minuteOfDayOrNull(from);
-                if (fromMinutes != null && fromMinutes.equals(minuteOfDayOrNull(to))) {
-                    throw new AtlasException("Time flows one way, mortal: an event that "
-                            + "begins and ends together is no event. Use: " + EVENT_SYNTAX);
-                }
-                return new Event(desc, from, to);
-            }
-            default:
-                throw new AssertionError("Not a task command: " + cmd);
+        return switch (cmd) {
+            case TODO -> parseTodoCommand(line, prefixLen);
+            case DEADLINE -> parseDeadlineCommand(line, prefixLen);
+            case EVENT -> parseEventCommand(line, prefixLen);
+            default -> throw new AssertionError("Not a task command: " + cmd);
+        };
+    }
+
+    /**
+     * Parses a todo command line, whose description is the whole argument.
+     *
+     * @param line input line containing a todo command.
+     * @param prefixLen length of the command word plus its separating space.
+     * @return the todo represented by the line.
+     * @throws AtlasException if the description is missing.
+     */
+    private static Task parseTodoCommand(String line, int prefixLen) throws AtlasException {
+        // A line that holds nothing but the command word is one character
+        // shorter than the prefix, and so carries no description.
+        String desc = line.length() == prefixLen - 1 ? "" : line.substring(prefixLen);
+        if (desc.trim().isEmpty()) {
+            throw new AtlasException("Name your labour, mortal: todo <desc>");
         }
+        return new Todo(desc);
+    }
+
+    /**
+     * Parses a deadline command line, which needs a description and a /by date.
+     *
+     * @param line input line containing a deadline command.
+     * @param prefixLen length of the command word plus its separating space.
+     * @return the deadline represented by the line.
+     * @throws AtlasException if a field is missing, repeated or unreadable.
+     */
+    private static Task parseDeadlineCommand(String line, int prefixLen) throws AtlasException {
+        if (countMarkers(line, BY_MARKER) > 1) {
+            throw new AtlasException("One reckoning is enough, mortal. Use: " + DEADLINE_SYNTAX);
+        }
+        int byPos = line.indexOf(BY_MARKER);
+        if (byPos == -1) {
+            throw new AtlasException("The Fates weave on schedule. Use: " + DEADLINE_SYNTAX);
+        }
+        String desc = descriptionBefore(line, prefixLen, byPos, DEADLINE_SYNTAX);
+        assert byPos > prefixLen : "byPos must point past the command prefix";
+        LocalDate by = parseByDate(line, byPos);
+        return new Deadline(desc, by);
+    }
+
+    /**
+     * Reads the date that follows a /by marker.
+     *
+     * @param line input line containing a deadline command.
+     * @param byPos position of the /by marker.
+     * @return the date written after the marker.
+     * @throws AtlasException if the date is missing or is not a date.
+     */
+    private static LocalDate parseByDate(String line, int byPos) throws AtlasException {
+        String byText = line.substring(byPos + BY_MARKER.length());
+        if (byText.trim().isEmpty()) {
+            throw new AtlasException("The Fates weave on schedule. Use: " + DEADLINE_SYNTAX);
+        }
+        try {
+            return LocalDate.parse(byText.trim());
+        } catch (DateTimeParseException e) {
+            throw new AtlasException("The Fates cannot read that date, mortal. "
+                    + "Use: deadline <desc> /by yyyy-mm-dd");
+        }
+    }
+
+    /**
+     * Parses an event command line, which needs a description and a /from and
+     * /to value.
+     *
+     * @param line input line containing an event command.
+     * @param prefixLen length of the command word plus its separating space.
+     * @return the event represented by the line.
+     * @throws AtlasException if a field is missing, repeated or carries the
+     *     same time of day at both ends.
+     */
+    private static Task parseEventCommand(String line, int prefixLen) throws AtlasException {
+        if (countMarkers(line, FROM_MARKER) > 1) {
+            throw new AtlasException("One departure is enough, mortal. Use: " + EVENT_SYNTAX);
+        }
+        if (countMarkers(line, TO_MARKER) > 1) {
+            throw new AtlasException("One landing is enough, mortal. Use: " + EVENT_SYNTAX);
+        }
+        int fromPos = line.indexOf(FROM_MARKER);
+        if (fromPos == -1) {
+            throw new AtlasException("Even Icarus launched from somewhere. "
+                    + "Use: " + EVENT_SYNTAX);
+        }
+        int toPos = line.indexOf(TO_MARKER, fromPos);
+        if (toPos == -1) {
+            throw new AtlasException("Icarus never planned a landing either. "
+                    + "Use: " + EVENT_SYNTAX);
+        }
+        String desc = descriptionBefore(line, prefixLen, fromPos, EVENT_SYNTAX);
+        assert fromPos > prefixLen : "fromPos must point past the command prefix";
+        assert toPos > fromPos : "/to must come after /from";
+        String from = eventStart(line, fromPos, toPos);
+        String to = eventEnd(line, toPos);
+        requireOrderedRange(from, to);
+        return new Event(desc, from, to);
+    }
+
+    /**
+     * Reads the value that starts an event, which runs from its /from marker to
+     * the /to marker.
+     *
+     * @param line input line containing an event command.
+     * @param fromPos position of the /from marker.
+     * @param toPos position of the /to marker.
+     * @return the start value written after the marker.
+     * @throws AtlasException if the start value is missing.
+     */
+    private static String eventStart(String line, int fromPos, int toPos) throws AtlasException {
+        int fromStart = fromPos + FROM_MARKER.length();
+        // The space that ends " /from " can also begin " /to ", as in
+        // "event x /from /to y". Ending the value at that shared space
+        // would place the end before the value began, so the end is
+        // never allowed to fall inside the marker itself.
+        String from = line.substring(fromStart, Math.max(toPos, fromStart));
+        if (from.trim().isEmpty()) {
+            throw new AtlasException("Even Icarus launched from somewhere. "
+                    + "Use: " + EVENT_SYNTAX);
+        }
+        return from;
+    }
+
+    /**
+     * Reads the value that ends an event.
+     *
+     * @param line input line containing an event command.
+     * @param toPos position of the /to marker.
+     * @return the end value written after the marker.
+     * @throws AtlasException if the end value is missing.
+     */
+    private static String eventEnd(String line, int toPos) throws AtlasException {
+        String to = line.substring(toPos + TO_MARKER.length());
+        if (to.trim().isEmpty()) {
+            throw new AtlasException("Icarus never planned a landing either. "
+                    + "Use: " + EVENT_SYNTAX);
+        }
+        return to;
+    }
+
+    /**
+     * Rejects an event whose start and end fall in an order Atlas can rule out.
+     * The two values are compared only when Atlas can read the same kind of time
+     * from both: a date from each. Free text, and a clock time with no date, are
+     * left to the same-time check below, so a value Atlas cannot read never
+     * fails a command.
+     *
+     * @param from start value written after the /from marker.
+     * @param to end value written after the /to marker.
+     * @throws AtlasException if the end falls before the start, or if both
+     *     values name the same time.
+     */
+    private static void requireOrderedRange(String from, String to) throws AtlasException {
+        LocalDate startDate = leadingDateOrNull(from);
+        LocalDate endDate = leadingDateOrNull(to);
+        if (startDate == null || endDate == null) {
+            requireDistinctTimes(from, to);
+            return;
+        }
+        requireDatedOrder(from, to, startDate, endDate);
+    }
+
+    /**
+     * Rejects a dated event that ends before it starts. Two values are ordered
+     * by date, and two values on the same date by the hour each one carries, so
+     * a same-day event runs forwards and an event that runs past midnight uses
+     * the next day's date.
+     *
+     * @param from start value written after the /from marker.
+     * @param to end value written after the /to marker.
+     * @param startDate date read from the start value.
+     * @param endDate date read from the end value.
+     * @throws AtlasException if the end falls before the start, or if both
+     *     values name the same time.
+     */
+    private static void requireDatedOrder(String from, String to, LocalDate startDate, LocalDate endDate)
+            throws AtlasException {
+        if (endDate.isBefore(startDate)) {
+            throw new AtlasException("Time flows one way, mortal: an event that "
+                    + "ends before it begins is no event. Use: " + EVENT_SYNTAX);
+        }
+        if (endDate.isAfter(startDate)) {
+            return;
+        }
+        Integer startMinutes = clockPartOrNull(from);
+        Integer endMinutes = clockPartOrNull(to);
+        if (startMinutes == null || endMinutes == null) {
+            return;
+        }
+        if (startMinutes.equals(endMinutes)) {
+            throw new AtlasException("Time flows one way, mortal: an event that "
+                    + "begins and ends together is no event. Use: " + EVENT_SYNTAX);
+        }
+        if (startMinutes > endMinutes) {
+            throw new AtlasException("Time flows one way, mortal: an event that "
+                    + "ends before it begins is no event. Use: " + EVENT_SYNTAX);
+        }
+    }
+
+    /**
+     * Returns the date that a value starts with, when that date is written as
+     * yyyy-mm-dd, d/m/yyyy or d-m-yyyy.
+     *
+     * @param value text written after a marker.
+     * @return the date, or {@code null} when the text starts with no date.
+     * @throws AtlasException if the text starts with a date-shaped value that
+     *     names no real day, such as 31/2/2026.
+     */
+    private static LocalDate leadingDateOrNull(String value) throws AtlasException {
+        int length = leadingDateLength(value);
+        if (length == 0) {
+            return null;
+        }
+        String text = value.trim().substring(0, length);
+        try {
+            return parseLeadingDate(text);
+        } catch (DateTimeException e) {
+            throw new AtlasException("The Fates know no such date as " + text
+                    + ". Use a real date, as yyyy-mm-dd, d/m/yyyy or d-m-yyyy.");
+        }
+    }
+
+    /**
+     * Returns how many characters of a value its leading date takes up.
+     *
+     * @param value text written after a marker.
+     * @return the length of the leading date, or 0 when the text starts with no
+     *     date.
+     */
+    private static int leadingDateLength(String value) {
+        Matcher matcher = LEADING_DATE.matcher(value.trim());
+        return matcher.find() ? matcher.group(1).length() : 0;
+    }
+
+    /**
+     * Reads a date written either year first, as yyyy-mm-dd, or day first, as
+     * d/m/yyyy or d-m-yyyy.
+     *
+     * @param text text of the date alone.
+     * @return the date the text names.
+     * @throws DateTimeException if the text names no real date.
+     */
+    private static LocalDate parseLeadingDate(String text) {
+        if (text.length() == ISO_DATE_LENGTH && text.charAt(4) == '-') {
+            return LocalDate.parse(text);
+        }
+        String[] parts = text.split("[/-]");
+        return LocalDate.of(Integer.parseInt(parts[2]),
+                Integer.parseInt(parts[1]), Integer.parseInt(parts[0]));
+    }
+
+    /**
+     * Returns the clock time that a value carries after its date, e.g. the
+     * "1400" of "2026-12-01 1400" or the "1000am" of "18/9/2026 1000am".
+     *
+     * @param value text written after a marker.
+     * @return minutes since midnight, or {@code null} when the text carries no
+     *     clock time Atlas can read.
+     */
+    private static Integer clockPartOrNull(String value) {
+        int length = leadingDateLength(value);
+        String text = value.trim();
+        if (length == 0 || text.length() <= length) {
+            return null;
+        }
+        return minuteOfDayOrNull(text.substring(length).trim());
+    }
+
+    /**
+     * Rejects an event that begins and ends at the same time of day. A value
+     * that is not a clock time cannot be compared with another, so it is
+     * accepted here.
+     *
+     * @param from start value written after the /from marker.
+     * @param to end value written after the /to marker.
+     * @throws AtlasException if both values name the same time of day.
+     */
+    private static void requireDistinctTimes(String from, String to) throws AtlasException {
+        Integer fromMinutes = minuteOfDayOrNull(from);
+        if (fromMinutes != null && fromMinutes.equals(minuteOfDayOrNull(to))) {
+            throw new AtlasException("Time flows one way, mortal: an event that "
+                    + "begins and ends together is no event. Use: " + EVENT_SYNTAX);
+        }
+    }
+
+    /**
+     * Returns the description that precedes a marker.
+     *
+     * @param line input line containing a task command.
+     * @param prefixLen length of the command word plus its separating space.
+     * @param markerPos position of the marker that ends the description.
+     * @param syntax syntax text reported when the description is missing.
+     * @return the description written before the marker.
+     * @throws AtlasException if the description is missing.
+     */
+    private static String descriptionBefore(String line, int prefixLen, int markerPos, String syntax)
+            throws AtlasException {
+        String desc = markerPos <= prefixLen ? "" : line.substring(prefixLen, markerPos);
+        if (desc.trim().isEmpty()) {
+            throw new AtlasException("Name your labour, mortal: " + syntax);
+        }
+        return desc;
     }
 }

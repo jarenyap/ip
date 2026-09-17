@@ -87,18 +87,7 @@ public class Storage {
         if (!Files.exists(filePath)) {
             return new AtlasData(tasks, clients);
         }
-        List<String> lines;
-        try {
-            lines = Files.readAllLines(filePath);
-        } catch (IOException e) {
-            // The file exists but cannot be decoded. Atlas carries on with an
-            // empty list, so a copy has to be kept before the next save
-            // overwrites what may be the user's only records.
-            String backupName = scheduleBackup();
-            throw new AtlasException("The scroll of tasks could not be read: " + e.getMessage()
-                    + " Atlas starts with an empty list, and the unreadable file is kept as "
-                    + backupName + " before the next change is saved.");
-        }
+        List<String> lines = readAllLines();
         ArrayList<String> skipped = new ArrayList<>();
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i).trim();
@@ -114,6 +103,39 @@ public class Storage {
         if (skipped.isEmpty()) {
             return new AtlasData(tasks, clients);
         }
+        return new AtlasData(tasks, clients, warningsForSkippedRecords(skipped));
+    }
+
+    /**
+     * Reads every line of the data file. A file that exists but cannot be
+     * decoded owes a backup copy, so the copy is arranged before the failure is
+     * reported.
+     *
+     * @return every line of the data file.
+     * @throws AtlasException if the file cannot be read.
+     */
+    private List<String> readAllLines() throws AtlasException {
+        try {
+            return Files.readAllLines(filePath);
+        } catch (IOException e) {
+            // The file exists but cannot be decoded. Atlas carries on with an
+            // empty list, so a copy has to be kept before the next save
+            // overwrites what may be the user's only records.
+            String backupName = scheduleBackup();
+            throw new AtlasException("The scroll of tasks could not be read: " + e.getMessage()
+                    + " Atlas starts with an empty list, and the unreadable file is kept as "
+                    + backupName + " before the next change is saved.");
+        }
+    }
+
+    /**
+     * Builds the warning lines that describe records a load could not read.
+     *
+     * @param skipped description of each record that could not be read, which
+     *     the caller has already found non-empty.
+     * @return the warning lines shown to the user, the summary first.
+     */
+    private ArrayList<String> warningsForSkippedRecords(ArrayList<String> skipped) {
         String backupName = scheduleBackup();
         ArrayList<String> warnings = new ArrayList<>();
         warnings.add("Atlas could not read " + skipped.size() + " record"
@@ -121,7 +143,7 @@ public class Storage {
                 + (skipped.size() == 1 ? "it is" : "they are") + " left out of this session. "
                 + "The file is kept as " + backupName + " before the next change is saved.");
         warnings.addAll(skipped);
-        return new AtlasData(tasks, clients, warnings);
+        return warnings;
     }
 
     /**
@@ -225,8 +247,10 @@ public class Storage {
     }
 
     /**
-     * Parses one storage line into a task. A task with a priority carries one
-     * extra field, holding the level word.
+     * Parses one storage line into a task. The fields shared by every task type
+     * are read here; the fields that belong to one type are read by that type's
+     * own parser. A task with a priority carries one extra field, holding the
+     * level word.
      *
      * @param parts fields of the storage line.
      * @param type record type read from the first field.
@@ -243,48 +267,95 @@ public class Storage {
         }
         boolean isDone = doneField.equals("1");
         String description = unescape(parts[2].trim());
-        Task task;
-        int fieldsBeforePriority;
-        switch (type) {
-            case "T": {
-                if (parts.length > 4) {
-                    throw new AtlasException("todo has extra fields");
-                }
-                task = new Todo(description);
-                fieldsBeforePriority = 3;
-                break;
-            }
-            case "D": {
-                if (parts.length < 4) {
-                    throw new AtlasException("deadline needs a by field");
-                }
-                if (parts.length > 5) {
-                    throw new AtlasException("deadline has extra fields");
-                }
-                LocalDate by;
-                try {
-                    by = LocalDate.parse(unescape(parts[3].trim()));
-                } catch (DateTimeParseException e) {
-                    throw new AtlasException("deadline by is not a date");
-                }
-                task = new Deadline(description, by);
-                fieldsBeforePriority = 4;
-                break;
-            }
-            case "E": {
-                if (parts.length < 5) {
-                    throw new AtlasException("event needs from and to fields");
-                }
-                if (parts.length > 6) {
-                    throw new AtlasException("event has extra fields");
-                }
-                task = new Event(description, unescape(parts[3].trim()), unescape(parts[4].trim()));
-                fieldsBeforePriority = 5;
-                break;
-            }
-            default:
-                throw new AtlasException("unknown record type '" + type + "'");
+        return switch (type) {
+            case "T" -> parseTodoRecord(parts, description, isDone);
+            case "D" -> parseDeadlineRecord(parts, description, isDone);
+            case "E" -> parseEventRecord(parts, description, isDone);
+            default -> throw new AtlasException("unknown record type '" + type + "'");
+        };
+    }
+
+    /**
+     * Builds a todo from its record. A todo carries no date field, so the only
+     * field it may add is the priority word.
+     *
+     * @param parts fields of the storage line.
+     * @param description description already read from the line.
+     * @param isDone whether the record marks the todo as done.
+     * @return the todo represented by the line.
+     * @throws AtlasException if the line has too many fields, or if its
+     *     priority field names no level Atlas knows.
+     */
+    private Task parseTodoRecord(String[] parts, String description, boolean isDone) throws AtlasException {
+        if (parts.length > 4) {
+            throw new AtlasException("todo has extra fields");
         }
+        return applyPriorityAndDone(new Todo(description), parts, 3, isDone);
+    }
+
+    /**
+     * Builds a deadline from its record, reading the single date field it
+     * carries.
+     *
+     * @param parts fields of the storage line.
+     * @param description description already read from the line.
+     * @param isDone whether the record marks the deadline as done.
+     * @return the deadline represented by the line.
+     * @throws AtlasException if the date field is missing, is not a date, or if
+     *     the line has too many fields or an unknown priority.
+     */
+    private Task parseDeadlineRecord(String[] parts, String description, boolean isDone) throws AtlasException {
+        if (parts.length < 4) {
+            throw new AtlasException("deadline needs a by field");
+        }
+        if (parts.length > 5) {
+            throw new AtlasException("deadline has extra fields");
+        }
+        LocalDate by;
+        try {
+            by = LocalDate.parse(unescape(parts[3].trim()));
+        } catch (DateTimeParseException e) {
+            throw new AtlasException("deadline by is not a date");
+        }
+        return applyPriorityAndDone(new Deadline(description, by), parts, 4, isDone);
+    }
+
+    /**
+     * Builds an event from its record, reading the from and to fields it
+     * carries.
+     *
+     * @param parts fields of the storage line.
+     * @param description description already read from the line.
+     * @param isDone whether the record marks the event as done.
+     * @return the event represented by the line.
+     * @throws AtlasException if the from or to field is missing, or if the line
+     *     has too many fields or an unknown priority.
+     */
+    private Task parseEventRecord(String[] parts, String description, boolean isDone) throws AtlasException {
+        if (parts.length < 5) {
+            throw new AtlasException("event needs from and to fields");
+        }
+        if (parts.length > 6) {
+            throw new AtlasException("event has extra fields");
+        }
+        Event event = new Event(description, unescape(parts[3].trim()), unescape(parts[4].trim()));
+        return applyPriorityAndDone(event, parts, 5, isDone);
+    }
+
+    /**
+     * Applies the two fields a task record may carry on top of its required
+     * ones: the priority word and the done flag.
+     *
+     * @param task task built from the record's required fields.
+     * @param parts fields of the storage line.
+     * @param fieldsBeforePriority number of fields the task has without a
+     *     priority, which is where the priority field starts.
+     * @param isDone whether the record marks the task as done.
+     * @return the task, with its priority and done state applied.
+     * @throws AtlasException if the priority field names no level Atlas knows.
+     */
+    private Task applyPriorityAndDone(Task task, String[] parts, int fieldsBeforePriority,
+            boolean isDone) throws AtlasException {
         // The priority word is written only when the task has a priority, so a
         // file written before priorities existed loads exactly as it did then.
         String priorityField = parts.length > fieldsBeforePriority ? parts[fieldsBeforePriority].trim() : "";

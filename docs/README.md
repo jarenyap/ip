@@ -36,7 +36,8 @@ Now you have 1 task in the list.
 `list` shows every task in the order you added them. `mark <number>`,
 `unmark <number>` and `delete <number>` all use the numbers that `list` prints,
 and `find <keyword>` narrows the list to the tasks whose description contains
-the keyword.
+the keyword. Several keywords may be given, and a task matches when its
+description contains any of them.
 
 ## Managing clients
 
@@ -131,11 +132,21 @@ changes your data when it rejects a command. A few cases are worth knowing:
 - A marker written twice, such as `client add Bob /phone 1 /phone 2`. Atlas
   rejects the command rather than storing the first number with the second
   marker stuck to it. The same applies to `/from`, `/to` and `/email`.
+- An event whose end falls before its start. When both values start with a date,
+  written as `2026-12-01`, `1/12/2026` or `1-12-2026`, Atlas orders them by date
+  and two values on the same date by the hour each one carries, so
+  `event lunch /from 1/12/2026 1400 /to 1/12/2026 1600` is accepted while an end
+  date before the start date, or an earlier hour on the same date, is rejected.
+  An event that runs past midnight uses the next day's date. A value Atlas cannot
+  read as a date at all is left alone, but a value shaped like a date that names
+  no real day, such as `31/2/2026` or `2026-02-30`, is rejected: the calendar
+  decides, so `29/2/2024` is accepted and `29/2/2026` is not.
 - An event that starts and ends at the same moment, such as
   `event vigil /from 2pm /to 2pm`. Atlas compares the two values only when both
-  are plain clock times (`2pm`, `2:30pm`, `14:00` or `0900`), so free text such
-  as `/from 7pm at marina` is left alone. An end later than the start is always
-  accepted, because an event may run past midnight.
+  are plain clock times (`2pm`, `10am`, `2:30pm`, `1000am`, `14:00` or `0900`),
+  or when both carry a date, so free text such as `/from 7pm at marina` is left
+  alone. A clock-only end earlier than its start is accepted, because an event
+  may run past midnight.
 - Spaces before a command are ignored, so an accidentally indented line still
   works. Mistakes are shown in a bubble bordered with `!` marks, so they stand
   out from Atlas's ordinary replies. In the window, the same mistakes appear in

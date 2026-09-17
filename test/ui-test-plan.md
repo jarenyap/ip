@@ -144,6 +144,10 @@ follows, which is what proves the session continues after an unknown word.
 | `priority-errors` | C-Priority: every malformed priority command is rejected and changes nothing | bare `priority`, `priority 0 high`, `priority abc high`, `todo only task`, `priority 1`, `priority 1 ` (trailing space), `priority 1 urgent`, `priority 1 high extra`, `priority 1 none`, `priority high 1`, `priority 2 low`, `list`, `bye` | Full missing-number, pantheon, missing-level and Fates messages; the cleared-rank reply for `none`; `1.[T][ ] only task` still unranked after every rejection |
 | `priority-persistence` | C-Priority: levels survive a restart with tasks and clients in one file, including a level set as the last command of a session | run 1: add todo/deadline/event, `priority 1 high`, `priority 3 low`, `client add Bob /phone 91234567`, `priority 2 medium`, `bye`; run 2: `list`, `client list`, `priority 1 none`, `list`, `bye` | Run 2 lists run 1's levels loaded from disk (`[HIGH]`, `[MEDIUM]`, `[LOW]`) and the client alongside them, so a level kept only in memory fails the case; then the cleared task is back to `1.[T][ ] buy milk` |
 | `event-marker-overlap` | A malformed event whose markers share one space is reported, not fatal | `event ritual /from /to 4pm`, `event /from /to 4pm`, `list`, `bye` | Full Icarus-from message for the missing start; full `Name your labour` message for the missing description; the list is still empty |
+| `event-inverted-range` | A dated event whose end falls before its start is rejected on both sides of the comparison, in every date and clock form Atlas reads | `event x /from 2026-12-01 /to 2026-11-01`, `event y /from 2026-12-01 1400 /to 2026-11-01 1400`, `event z /from 2026-12-01 1400 /to 2026-12-01 1000`, `event w /from 2026-12-01 1400 /to 2026-12-01 1400`, `event v /from 18/9/2026 1000am /to 17/9/2026 1000am`, `event u /from 1-12-2026 1400 /to 1-12-2026 1300`, `event q /from 18/9/2026 1000am /to 18/9/2026 1000am`, `event r /from 18/9/2026 1000am /to 18/9/2026 0900am`, `list`, `bye` | The full ends-before-it-begins message for every earlier end date, earlier hour and earlier same-day hour; the begins-and-ends-together message for the equal hours; the list still empty |
+| `event-dated-order-ok` | Every range Atlas should still accept after the ordered-range rule is accepted | `event same-day later hour /from 2026-12-01 1400 /to 2026-12-01 1600`, `event day-first same day /from 18/9/2026 1000am /to 18/9/2026 1200pm`, `event past midnight /from 2026-12-01 2300 /to 2026-12-02 0100`, `event same date no hours /from 2026-12-01 /to 2026-12-01`, `event clock only /from 2pm /to 1pm`, `event free text /from 7pm at marina /to later that night`, `list`, `bye` | All six listed in order with their values unchanged, which proves the new rule rejects none of a forwards date range, a day-first same-day range, a cross-midnight range, a date pair without hours, a clock-only past-midnight pair or free text |
+| `event-compact-meridiem` | A compact 12-hour clock beside a date is read, so an earlier start hour is accepted | `event earlier /from 18/9/2026 1000am /to 18/9/2026 1230pm`, `list`, `bye` | The event listed with the values as typed, which proves `1000am` reads as 10:00 and `1230pm` as 12:30 |
+| `event-impossible-date` | A date-shaped value that names no real day is rejected, and the calendar including leap years is honoured | `event badday /from 32/9/2026 /to 1/10/2026`, `event badfeb /from 31/2/2026 /to 1/3/2026`, `event badiso /from 2026-02-30 /to 2026-03-01`, `event badmonth /from 13/13/2026 /to 1/1/2027`, `event leap /from 29/2/2024 /to 1/3/2024`, `event noleap /from 29/2/2026 /to 1/3/2026`, `list`, `bye` | The full no-such-date message for each impossible date, naming it; only the leap-day event stored, listed as `1.[E][ ] leap (from: 29/2/2024 to: 1/3/2024)` |
 | `duplicate-markers` | A marker repeated in one command is rejected, not swallowed into a value | `todo seed`, `event a /from 1pm /from 2pm /to 3pm`, `event b /from 1pm /to 2pm /to 3pm`, `deadline d /by 2026-09-01 /by 2026-09-02`, `client add Bob /phone 1 /phone 2`, `client add Ann /email a@b.com /email c@d.com`, `list`, `client list`, `bye` | The five full duplicate messages; only the seeded task exists; the client list is still empty |
 | `whitespace-slack` | Leading whitespace is insignificant, and `bye` with surrounding spaces exits | ` todo padded` (indented), `  mark 1`, `  list`, ` bye` | `1.[T][X] padded`, which proves the indented commands ran and the indented `bye` exited |
 | `no-bye-exit` | End of input exits cleanly with the goodbye and exit code 0 | `todo survive`, `list` (no `bye` line at all) | `1.[T][ ] survive` and the goodbye, with the session exiting 0 instead of crashing |
@@ -163,9 +167,20 @@ it can meet in normal use:
   the previous value, which used to store `2026-09-01 /by 2026-09-02` as a date
   field. This applies to `/from`, `/to`, `/by`, `/phone` and `/email`.
 - An event whose start and end name the same moment is rejected. Both values
-  must be plain clock times (`2pm`, `2:30pm`, `14:00`, `0900`) for the check to
+  must be plain clock times (`2pm`, `10am`, `2:30pm`, `1000am`, `14:00`, `0900`) for the check to
   apply, because free text such as `7pm at marina` cannot be ordered. A later
-  end is accepted, since an event may run past midnight.
+  end is accepted when no date is given, since an event may run past midnight.
+- A dated event whose end falls before its start is rejected: two values that
+  both start with a date, as `2026-12-01`, `1/12/2026` or `1-12-2026`, are
+  ordered by date, and two on the same date by the hour each one carries.
+  `2026-12-01` to `2026-11-01` and `18/9/2026 1000am` to `17/9/2026 1000am` are
+  no longer stored as ranges that run backwards, while a forwards range, a
+  cross-midnight pair written with the next day's date, a same-date pair without
+  hours, and free text are all still accepted.
+- A value shaped like a date that names no real day is rejected instead of being
+  kept as free text, so `31/2/2026`, `32/9/2026`, `13/13/2026` and `2026-02-30`
+  fail while `29/2/2024` passes, because the calendar, leap years included,
+  decides.
 - End of input (Ctrl+D, or a script that runs out of lines) exits with the
   goodbye instead of throwing `NoSuchElementException`. `bye ` with a trailing
   space and an indented command both work now, because the command is matched

@@ -99,99 +99,165 @@ public class AtlasSession {
                 throw new AtlasException("The Oracle is silent on that word. "
                         + "Try: todo, deadline, event, list, mark, unmark, delete, find, priority, client, bye.");
             }
-            switch (cmd) {
-                case LIST:
-                    if (tasks.isEmpty()) {
-                        output.speak("Your list is empty.");
-                    } else {
-                        output.speak("Here are the tasks in your list:");
-                        for (int i = 0; i < tasks.size(); i++) {
-                            output.print((i + 1) + "." + tasks.get(i));
-                        }
-                    }
-                    break;
-                case MARK: {
-                    int index = parseTaskNumber(line, cmd, "Which labour is complete? Use: mark <number>");
-                    tasks.get(index - 1).markAsDone();
-                    saveAll();
-                    output.speak("Nice! I've marked this task as done:");
-                    assert index >= 1 && index <= tasks.size()
-                            : "the marked task must still be in the list";
-                    output.speak("  " + tasks.get(index - 1));
-                    break;
-                }
-                case UNMARK: {
-                    int index = parseTaskNumber(line, cmd,
-                            "Which labour is not complete? Use: unmark <number>");
-                    tasks.get(index - 1).markAsNotDone();
-                    saveAll();
-                    output.speak("OK, I've marked this task as not done yet:");
-                    assert index >= 1 && index <= tasks.size()
-                            : "the unmarked task must still be in the list";
-                    output.speak("  " + tasks.get(index - 1));
-                    break;
-                }
-                case DELETE: {
-                    int index = parseTaskNumber(line, cmd, "Which labour shall I release? Use: delete <number>");
-                    Task removed = tasks.remove(index - 1);
-                    assert removed != null : "a valid task number always yields a task";
-                    saveAll();
-                    output.speak("Got it. I've removed this task:");
-                    output.speak("  " + removed);
-                    speakTaskCount();
-                    break;
-                }
-                case FIND:
-                    String[] keywords = Parser.parseKeywords(line, cmd);
-                    ArrayList<Task> matches = tasks.find(keywords);
-                    if (matches.isEmpty()) {
-                        output.speak("The Oracle found no matching tasks.");
-                    } else {
-                        output.speak("Here are the matching tasks in your list:");
-                        for (int i = 0; i < matches.size(); i++) {
-                            output.print((i + 1) + "." + matches.get(i));
-                        }
-                    }
-                    break;
-                case PRIORITY: {
-                    int index = parsePriorityNumber(line);
-                    String level = Parser.parsePriorityLevel(line);
-                    Task ranked = tasks.get(index - 1);
-                    if (level.equals(Parser.PRIORITY_NONE_WORD)) {
-                        ranked.clearPriority();
-                        saveAll();
-                        output.speak("Noted. I've cleared this task's rank:");
-                    } else {
-                        ranked.setPriority(Priority.fromWord(level));
-                        saveAll();
-                        output.speak("Noted. I've ranked this task:");
-                    }
-                    output.speak("  " + ranked);
-                    break;
-                }
-                case TODO:
-                case DEADLINE:
-                case EVENT: {
-                    Task t = Parser.parseTask(line, cmd);
-                    tasks.add(t);
-                    saveAll();
-                    output.speak("Got it. I've added this task:");
-                    output.speak("  " + t);
-                    speakTaskCount();
-                    break;
-                }
-                case CLIENT:
-                    respondToClient(line);
-                    break;
-                case BYE:
-                    // Unreachable: callers exit before dispatching "bye".
-                    break;
-                default:
-                    throw new AssertionError("Every command is handled above");
-            }
+            dispatchTaskCommand(line, cmd);
         } catch (AtlasException e) {
             output.speakError(e.getMessage());
         }
+    }
+
+    /**
+     * Runs the handler that belongs to one task command. Each handler keeps
+     * one command's own work, so no single method carries the whole command
+     * set.
+     *
+     * @param line the full command line typed by the user.
+     * @param cmd the command parsed from that line.
+     * @throws AtlasException if the command is malformed.
+     */
+    private void dispatchTaskCommand(String line, Command cmd) throws AtlasException {
+        if (cmd == Command.BYE) {
+            // Unreachable: callers exit before dispatching "bye".
+            return;
+        }
+        switch (cmd) {
+            case LIST -> listTasks();
+            case MARK -> markTask(line, cmd);
+            case UNMARK -> unmarkTask(line, cmd);
+            case DELETE -> deleteTask(line, cmd);
+            case FIND -> findTasks(line, cmd);
+            case PRIORITY -> rankTask(line);
+            case TODO, DEADLINE, EVENT -> addTask(line, cmd);
+            case CLIENT -> respondToClient(line);
+            default -> throw new AssertionError("Every command is handled above");
+        }
+    }
+
+    /**
+     * Reports every task, one line per task, or says the list is empty.
+     */
+    private void listTasks() {
+        if (tasks.isEmpty()) {
+            output.speak("Your list is empty.");
+            return;
+        }
+        output.speak("Here are the tasks in your list:");
+        for (int i = 0; i < tasks.size(); i++) {
+            output.print((i + 1) + "." + tasks.get(i));
+        }
+    }
+
+    /**
+     * Marks one task as done.
+     *
+     * @param line the full command line typed by the user.
+     * @param cmd the command whose task number is being parsed.
+     * @throws AtlasException if the number is missing, is not a number, or
+     *     falls outside the current task list.
+     */
+    private void markTask(String line, Command cmd) throws AtlasException {
+        int index = parseTaskNumber(line, cmd, "Which labour is complete? Use: mark <number>");
+        tasks.get(index - 1).markAsDone();
+        saveAll();
+        output.speak("Nice! I've marked this task as done:");
+        assert index >= 1 && index <= tasks.size()
+                : "the marked task must still be in the list";
+        output.speak("  " + tasks.get(index - 1));
+    }
+
+    /**
+     * Marks one task as not done yet.
+     *
+     * @param line the full command line typed by the user.
+     * @param cmd the command whose task number is being parsed.
+     * @throws AtlasException if the number is missing, is not a number, or
+     *     falls outside the current task list.
+     */
+    private void unmarkTask(String line, Command cmd) throws AtlasException {
+        int index = parseTaskNumber(line, cmd,
+                "Which labour is not complete? Use: unmark <number>");
+        tasks.get(index - 1).markAsNotDone();
+        saveAll();
+        output.speak("OK, I've marked this task as not done yet:");
+        assert index >= 1 && index <= tasks.size()
+                : "the unmarked task must still be in the list";
+        output.speak("  " + tasks.get(index - 1));
+    }
+
+    /**
+     * Removes one task from the list.
+     *
+     * @param line the full command line typed by the user.
+     * @param cmd the command whose task number is being parsed.
+     * @throws AtlasException if the number is missing, is not a number, or
+     *     falls outside the current task list.
+     */
+    private void deleteTask(String line, Command cmd) throws AtlasException {
+        int index = parseTaskNumber(line, cmd, "Which labour shall I release? Use: delete <number>");
+        Task removed = tasks.remove(index - 1);
+        assert removed != null : "a valid task number always yields a task";
+        saveAll();
+        output.speak("Got it. I've removed this task:");
+        output.speak("  " + removed);
+        speakTaskCount();
+    }
+
+    /**
+     * Reports the tasks whose descriptions contain any of the keywords given.
+     *
+     * @param line the full command line typed by the user.
+     * @param cmd the find command, whose keywords are being parsed.
+     * @throws AtlasException if the keywords are malformed.
+     */
+    private void findTasks(String line, Command cmd) throws AtlasException {
+        String[] keywords = Parser.parseKeywords(line, cmd);
+        ArrayList<Task> matches = tasks.find(keywords);
+        if (matches.isEmpty()) {
+            output.speak("The Oracle found no matching tasks.");
+            return;
+        }
+        output.speak("Here are the matching tasks in your list:");
+        for (int i = 0; i < matches.size(); i++) {
+            output.print((i + 1) + "." + matches.get(i));
+        }
+    }
+
+    /**
+     * Sets, changes or clears the rank of one task.
+     *
+     * @param line the full command line typed by the user.
+     * @throws AtlasException if the number is missing, is not a number, falls
+     *     outside the current task list, or names no level Atlas knows.
+     */
+    private void rankTask(String line) throws AtlasException {
+        int index = parsePriorityNumber(line);
+        String level = Parser.parsePriorityLevel(line);
+        Task ranked = tasks.get(index - 1);
+        if (level.equals(Parser.PRIORITY_NONE_WORD)) {
+            ranked.clearPriority();
+            saveAll();
+            output.speak("Noted. I've cleared this task's rank:");
+        } else {
+            ranked.setPriority(Priority.fromWord(level));
+            saveAll();
+            output.speak("Noted. I've ranked this task:");
+        }
+        output.speak("  " + ranked);
+    }
+
+    /**
+     * Adds one new todo, deadline or event to the list.
+     *
+     * @param line the full command line typed by the user.
+     * @param cmd the command that names the task type to build.
+     * @throws AtlasException if the task does not match its command's format.
+     */
+    private void addTask(String line, Command cmd) throws AtlasException {
+        Task added = Parser.parseTask(line, cmd);
+        tasks.add(added);
+        saveAll();
+        output.speak("Got it. I've added this task:");
+        output.speak("  " + added);
+        speakTaskCount();
     }
 
     /**
@@ -203,51 +269,77 @@ public class AtlasSession {
     private void respondToClient(String line) throws AtlasException {
         ClientCommand sub = Parser.parseClientSubcommand(line);
         switch (sub) {
-            case ADD: {
-                Client client = Parser.parseClient(line);
-                clients.add(client);
-                saveAll();
-                output.speak("Got it. I've added this client:");
-                output.speak("  " + client);
-                speakClientCount();
-                break;
-            }
-            case LIST:
-                if (clients.isEmpty()) {
-                    output.speak("Your client list is empty.");
-                } else {
-                    output.speak("Here are your clients:");
-                    for (int i = 0; i < clients.size(); i++) {
-                        output.print((i + 1) + "." + clients.get(i));
-                    }
-                }
-                break;
-            case FIND: {
-                String[] keywords = Parser.parseClientKeywords(line);
-                ArrayList<Client> matches = clients.find(keywords);
-                if (matches.isEmpty()) {
-                    output.speak("The Oracle found no matching clients.");
-                } else {
-                    output.speak("Here are the matching clients:");
-                    for (int i = 0; i < matches.size(); i++) {
-                        output.print((i + 1) + "." + matches.get(i));
-                    }
-                }
-                break;
-            }
-            case DELETE: {
-                int index = parseClientNumber(line);
-                Client removed = clients.remove(index - 1);
-                assert removed != null : "a valid client number always yields a client";
-                saveAll();
-                output.speak("Got it. I've removed this client:");
-                output.speak("  " + removed);
-                speakClientCount();
-                break;
-            }
-            default:
-                throw new AssertionError("Every client command is handled above");
+            case ADD -> addClient(line);
+            case LIST -> listClients();
+            case FIND -> findClients(line);
+            case DELETE -> deleteClient(line);
+            default -> throw new AssertionError("Every client command is handled above");
         }
+    }
+
+    /**
+     * Adds one new client to the list.
+     *
+     * @param line the full command line typed by the user.
+     * @throws AtlasException if the client command is malformed.
+     */
+    private void addClient(String line) throws AtlasException {
+        Client client = Parser.parseClient(line);
+        clients.add(client);
+        saveAll();
+        output.speak("Got it. I've added this client:");
+        output.speak("  " + client);
+        speakClientCount();
+    }
+
+    /**
+     * Reports every client, one line per client, or says the list is empty.
+     */
+    private void listClients() {
+        if (clients.isEmpty()) {
+            output.speak("Your client list is empty.");
+            return;
+        }
+        output.speak("Here are your clients:");
+        for (int i = 0; i < clients.size(); i++) {
+            output.print((i + 1) + "." + clients.get(i));
+        }
+    }
+
+    /**
+     * Reports the clients whose names or details contain every keyword given.
+     *
+     * @param line the full command line typed by the user.
+     * @throws AtlasException if the keywords are malformed.
+     */
+    private void findClients(String line) throws AtlasException {
+        String[] keywords = Parser.parseClientKeywords(line);
+        ArrayList<Client> matches = clients.find(keywords);
+        if (matches.isEmpty()) {
+            output.speak("The Oracle found no matching clients.");
+            return;
+        }
+        output.speak("Here are the matching clients:");
+        for (int i = 0; i < matches.size(); i++) {
+            output.print((i + 1) + "." + matches.get(i));
+        }
+    }
+
+    /**
+     * Removes one client from the list.
+     *
+     * @param line the full command line typed by the user.
+     * @throws AtlasException if the number is missing, is not a number, or
+     *     falls outside the current client list.
+     */
+    private void deleteClient(String line) throws AtlasException {
+        int index = parseClientNumber(line);
+        Client removed = clients.remove(index - 1);
+        assert removed != null : "a valid client number always yields a client";
+        saveAll();
+        output.speak("Got it. I've removed this client:");
+        output.speak("  " + removed);
+        speakClientCount();
     }
 
     /**
